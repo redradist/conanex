@@ -13,6 +13,6 @@ CTRE/3.6 { git = "https://github.com/hanickadot/compile-time-regular-expressions
 As you can see in this file we have 2 additional packages with custom url for packages
 
 To use `conanex` use it the same way you use `conan`:
-```console install <path_to_conanfile.txt> -pr=<path_to_profile>
-conanex
+```console
+conanex install <path_to_conanfile.txt> -pr=<path_to_profile>
 ```
