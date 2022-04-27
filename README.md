@@ -16,3 +16,23 @@ To use `conanex` use it the same way you use `conan`:
 ```console
 conanex install <path_to_conanfile.txt> -pr=<path_to_profile>
 ```
+
+If you are using `cmake-conan`:
+```cmake
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
+    message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
+    file(DOWNLOAD "https://raw.githubusercontent.com/conan-io/cmake-conan/0.18.1/conan.cmake"
+         "${CMAKE_BINARY_DIR}/conan.cmake"
+         TLS_VERIFY ON)
+endif()
+
+include(${CMAKE_BINARY_DIR}/conan.cmake)
+
+set(CONAN_COMMAND conanex)
+conan_cmake_autodetect(settings)
+conan_cmake_install(PATH_OR_REFERENCE ${CMAKE_CURRENT_LIST_DIR}
+                    BUILD missing
+                    REMOTE conancenter
+                    SETTINGS ${settings})
+```
+Only thing you need is to specify `set(CONAN_COMMAND conanex)` before any conan command
