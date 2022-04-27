@@ -1,5 +1,6 @@
 ## ConanEx - Conan Extended, conan that more decentralize
 
+### Overview
 What it allows ?
 
 Consider the following `conanfile.txt`:
@@ -36,3 +37,14 @@ conan_cmake_install(PATH_OR_REFERENCE ${CMAKE_CURRENT_LIST_DIR}
                     SETTINGS ${settings})
 ```
 Only thing you need is to specify `set(CONAN_COMMAND conanex)` before any conan command
+
+### Roadmap
+Next I want to add the following syntax for external packages:
+```console
+CTRE/3.6 { zip = "https://github.com/hanickadot/compile-time-regular-expressions/archive/refs/tags/v3.6.zip" }
+CTRE/3.6 { zip = "https://github.com/hanickadot/compile-time-regular-expressions/archive/refs/tags/v3.6.tar.gz" }
+CTRE/3.6 { zip = "https://github.com/hanickadot/compile-time-regular-expressions/archive/refs/tags/v3.6.tar.bz2" }
+CTRE/3.6 { conan = "https://github.com/hanickadot/compile-time-regular-expressions/archive/refs/tags/v3.6.zip" }
+CTRE/3.6 { conancenter = "<url>" }
+CTRE/3.6 { folder = "../" }
+```
