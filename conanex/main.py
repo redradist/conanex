@@ -219,74 +219,76 @@ def build_install_args(args, tmpfilename):
 
 
 def run():
-    args = parse_args()
-    if args.command == 'install':
+    if 'install' in sys.argv:
+        args = parse_args()
         file_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
-        with open(file_path) as f:
-            new_file_lines = []
-            for line in f.readlines():
-                external_package_match = external_package_re.match(line)
-                if external_package_match:
-                    name = external_package_match.group('package')
-                    version = external_package_match.group('version')
-                    if not name or not version:
-                        raise Exception(
-                            f"name and version of package is required !! Please, specify it in following format: package/version")
-                    user = external_package_match.group('user')
-                    channel = external_package_match.group('channel')
-                    protocol = external_package_match.group('protocol')
-                    url = external_package_match.group('url')
-                    tag = external_package_match.group('tag')
+        if os.path.exists(file_path):
+            with open(file_path) as f:
+                new_file_lines = []
+                for line in f.readlines():
+                    external_package_match = external_package_re.match(line)
+                    if external_package_match:
+                        name = external_package_match.group('package')
+                        version = external_package_match.group('version')
+                        if not name or not version:
+                            raise Exception(
+                                f"name and version of package is required !! Please, specify it in following format: package/version")
+                        user = external_package_match.group('user')
+                        channel = external_package_match.group('channel')
+                        protocol = external_package_match.group('protocol')
+                        url = external_package_match.group('url')
+                        tag = external_package_match.group('tag')
 
-                    with tempfile.TemporaryDirectory() as tmpdirname:
-                        git_clone_command = ["git", "clone", '-b', tag, url, tmpdirname]
-                        if tag:
-                            git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, tmpdirname]
-                        else:
-                            git_clone_command = ["git", "clone", "--recursive", url, tmpdirname]
-                        with Popen(git_clone_command, stdout=DEVNULL, stderr=DEVNULL) as proc:
-                            pass
-                        if version:
-                            package_name = f"{name}/{version}"
-                        else:
-                            package_name = f"{name}"
-                        if user and channel:
-                            full_package_name = f"{package_name}@{user}/{channel}"
-                        else:
-                            full_package_name = f"{package_name}@"
-                        if not tag:
-                            print(f"\nBuilding {full_package_name} from sources:")
-                            create_args = build_create_args(args, tmpdirname, full_package_name)
-                            conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
-                            with Popen(conan_create_command) as proc:
+                        with tempfile.TemporaryDirectory() as tmpdirname:
+                            git_clone_command = ["git", "clone", '-b', tag, url, tmpdirname]
+                            if tag:
+                                git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, tmpdirname]
+                            else:
+                                git_clone_command = ["git", "clone", "--recursive", url, tmpdirname]
+                            with Popen(git_clone_command, stdout=DEVNULL, stderr=DEVNULL) as proc:
                                 pass
-                        else:
-                            with Popen([sys.executable, "-m", "conans.conan", "search", package_name],
-                                       stdout=PIPE) as proc:
-                                search_results = str(proc.stdout.read())
-                                if "Existing package recipes:" in search_results:
-                                    print(f"{full_package_name} was found in cache")
-                                else:
-                                    print(f"\nBuilding {full_package_name} from sources:")
-                                    create_args = build_create_args(args, tmpdirname, full_package_name)
-                                    conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
-                                    with Popen(conan_create_command) as proc:
-                                        pass
-                        new_file_lines.append(f"{full_package_name}\n")
-                else:
-                    new_file_lines.append(str(line))
-            with tempfile.TemporaryDirectory() as tmpdirname:
-                new_conanfile = os.path.join(tmpdirname, "conanfile.txt")
-                with open(new_conanfile, mode='w') as file:
-                    file.writelines(new_file_lines)
-                install_args = build_install_args(args, new_conanfile)
-                conan_install_command = [sys.executable, "-m", "conans.conan", *install_args]
-                with Popen(conan_install_command) as proc:
-                    pass
-    else:
-        conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
-        with Popen(conan_command) as proc:
-            pass
+                            if version:
+                                package_name = f"{name}/{version}"
+                            else:
+                                package_name = f"{name}"
+                            if user and channel:
+                                full_package_name = f"{package_name}@{user}/{channel}"
+                            else:
+                                full_package_name = f"{package_name}@"
+                            if not tag:
+                                print(f"\nBuilding {full_package_name} from sources:")
+                                create_args = build_create_args(args, tmpdirname, full_package_name)
+                                conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
+                                with Popen(conan_create_command) as proc:
+                                    pass
+                            else:
+                                with Popen([sys.executable, "-m", "conans.conan", "search", package_name],
+                                           stdout=PIPE) as proc:
+                                    search_results = str(proc.stdout.read())
+                                    if "Existing package recipes:" in search_results:
+                                        print(f"{full_package_name} was found in cache")
+                                    else:
+                                        print(f"\nBuilding {full_package_name} from sources:")
+                                        create_args = build_create_args(args, tmpdirname, full_package_name)
+                                        conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
+                                        with Popen(conan_create_command) as proc:
+                                            pass
+                            new_file_lines.append(f"{full_package_name}\n")
+                    else:
+                        new_file_lines.append(str(line))
+                with tempfile.TemporaryDirectory() as tmpdirname:
+                    new_conanfile = os.path.join(tmpdirname, "conanfile.txt")
+                    with open(new_conanfile, mode='w') as file:
+                        file.writelines(new_file_lines)
+                    install_args = build_install_args(args, new_conanfile)
+                    conan_install_command = [sys.executable, "-m", "conans.conan", *install_args]
+                    with Popen(conan_install_command) as proc:
+                        pass
+        return
+
+    conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
+    with Popen(conan_command) as proc:
+        pass
 
 
 if __name__ == '__main__':

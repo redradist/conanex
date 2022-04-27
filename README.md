@@ -4,7 +4,7 @@ What it allows ?
 
 Consider the following `conanfile.txt`:
 
-```toml
+```console
 [requires]
 poco/1.9.4
 flatbuffers/2.0.0 { git = "https://github.com/google/flatbuffers", tag = "v2.0.0" }
