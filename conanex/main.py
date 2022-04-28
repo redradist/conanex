@@ -3,6 +3,7 @@ import re
 import tarfile
 import tempfile
 from io import BytesIO
+from pathlib import Path
 from subprocess import Popen, PIPE, DEVNULL
 
 import argparse
@@ -13,7 +14,7 @@ from zipfile import ZipFile
 import tarfile
 
 external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*" \
-                   r"\{\s*(?P<protocol>(git|https|zip|conan|conancenter|folder))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
+                   r"\{\s*(?P<protocol>(git|https|zip|conan|conancenter|path))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
 external_package_re = re.compile(external_package)
 new_section = r"\[.*\]"
 new_section_re = re.compile(new_section)
@@ -342,6 +343,19 @@ def install_package_from_zip(args, channel, name, new_file_lines, tag, url, user
         new_file_lines.append(f"{full_package_name}\n")
 
 
+def install_package_from_path(args, path, channel, name, new_file_lines, tag, url, user, version):
+    if version:
+        package_name = f"{name}/{version}"
+    else:
+        package_name = f"{name}"
+    if user and channel:
+        full_package_name = f"{package_name}@{user}/{channel}"
+    else:
+        full_package_name = f"{package_name}@"
+    run_conan_create_command(args, full_package_name, path)
+    new_file_lines.append(f"{full_package_name}\n")
+
+
 def run():
     if 'install' in sys.argv:
         args = parse_args()
@@ -377,6 +391,11 @@ def run():
                             install_package_from_git(args, channel, name, new_file_lines, tag, url, user, version)
                         elif protocol == 'zip':
                             install_package_from_zip(args, channel, name, new_file_lines, tag, url, user, version)
+                        elif protocol == 'path':
+                            conanfile_path = os.path.dirname(file_path)
+                            conanfile_posix_path = Path(conanfile_path).as_posix()
+                            path = str(Path(f"{conanfile_posix_path}/{url}"))
+                            install_package_from_path(args, path, channel, name, new_file_lines, tag, url, user, version)
                     else:
                         new_file_lines.append(str(line))
                 with tempfile.TemporaryDirectory() as tmpdirname:

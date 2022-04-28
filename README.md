@@ -11,8 +11,8 @@ poco/1.9.4
 #flatbuffers/2.0.0 { git = "https://github.com/google/flatbuffers", tag = "v2.0.0" }
 #flatbuffers/2.0.0 { zip = "https://github.com/google/flatbuffers/archive/refs/tags/v2.0.0.zip" }
 flatbuffers/2.0.0 { zip = "https://github.com/google/flatbuffers/archive/refs/tags/v2.0.0.tar.gz" }
-CTRE/3.6 { git = "https://github.com/hanickadot/compile-time-regular-expressions" }
-
+#CTRE/3.6 { git = "https://github.com/hanickadot/compile-time-regular-expressions" }
+CTRE/3.6 { path = "../../../../compile-time-regular-expressions" }
 ```
 As you can see in this file we have 2 additional packages with custom url for packages
 
@@ -44,10 +44,6 @@ Only thing you need is to specify `set(CONAN_COMMAND conanex)` before any conan 
 ### Roadmap
 Next I want to add the following syntax for external packages:
 ```console
-CTRE/3.6 { zip = "https://github.com/hanickadot/compile-time-regular-expressions/archive/refs/tags/v3.6.zip" }
-CTRE/3.6 { zip = "https://github.com/hanickadot/compile-time-regular-expressions/archive/refs/tags/v3.6.tar.gz" }
-CTRE/3.6 { zip = "https://github.com/hanickadot/compile-time-regular-expressions/archive/refs/tags/v3.6.tar.bz2" }
 CTRE/3.6 { conan = "https://github.com/hanickadot/compile-time-regular-expressions/archive/refs/tags/v3.6.zip" }
 CTRE/3.6 { conancenter = "<url>" }
-CTRE/3.6 { folder = "../" }
 ```
