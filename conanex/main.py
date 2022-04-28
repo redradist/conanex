@@ -370,8 +370,10 @@ def run():
                     elif new_section_re.match(line):
                         requires_context = False
                     if not requires_context:
+                        new_file_lines.append(str(line))
                         continue
                     if line.strip().startswith("#"):
+                        new_file_lines.append(str(line))
                         continue
 
                     external_package_match = external_package_re.match(line)
