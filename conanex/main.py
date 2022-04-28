@@ -1,5 +1,6 @@
 import os
 import re
+import tarfile
 import tempfile
 from io import BytesIO
 from subprocess import Popen, PIPE, DEVNULL
@@ -9,10 +10,13 @@ import sys
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from zipfile import ZipFile
+import tarfile
 
 external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*" \
                    r"\{\s*(?P<protocol>(git|https|zip|conan|conancenter|folder))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
 external_package_re = re.compile(external_package)
+new_section = r"\[.*\]"
+new_section_re = re.compile(new_section)
 
 
 def parse_args():
@@ -291,15 +295,34 @@ def uri_validator(url):
         return False
 
 
+def extract_from_zip(tmpdirname, url):
+    if uri_validator(url):
+        resp = urlopen(url)
+        with ZipFile(BytesIO(resp.read())) as zipfile:
+            zipfile.extractall(tmpdirname)
+    else:
+        with ZipFile(url, 'r') as zipfile:
+            zipfile.extractall(tmpdirname)
+
+
+def extract_from_tar(tmpdirname, url, archive):
+    if uri_validator(url):
+        resp = urlopen(url)
+        with tarfile.open(fileobj=BytesIO(resp.read()), mode=f"r:{archive}") as tar:
+            tar.extractall(tmpdirname)
+    else:
+        with tarfile.open(name=url, mode=f'r:{archive}') as tar:
+            tar.extractall(tmpdirname)
+
+
 def install_package_from_zip(args, channel, name, new_file_lines, tag, url, user, version):
     with tempfile.TemporaryDirectory() as tmpdirname:
-        if uri_validator(url):
-            resp = urlopen(url)
-            with ZipFile(BytesIO(resp.read())) as zipfile:
-                zipfile.extractall(tmpdirname)
-        else:
-            with ZipFile(url, 'r') as zipfile:
-                zipfile.extractall(tmpdirname)
+        filename, file_ext = os.path.splitext(url)
+        file_ext = file_ext[1:]
+        if file_ext == 'zip':
+            extract_from_zip(tmpdirname, url)
+        elif os.path.splitext(filename)[1][1:] == 'tar':
+            extract_from_tar(tmpdirname, url, file_ext)
 
         subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
         if len(subfolders) == 1:
@@ -326,7 +349,17 @@ def run():
         if os.path.exists(file_path):
             with open(file_path) as f:
                 new_file_lines = []
+                requires_context = False
                 for line in f.readlines():
+                    if "[requires]" in line:
+                        requires_context = True
+                    elif new_section_re.match(line):
+                        requires_context = False
+                    if not requires_context:
+                        continue
+                    if line.strip().startswith("#"):
+                        continue
+
                     external_package_match = external_package_re.match(line)
                     if external_package_match:
                         name = external_package_match.group('package')
