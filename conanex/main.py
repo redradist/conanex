@@ -1,14 +1,17 @@
 import os
 import re
 import tempfile
+from io import BytesIO
 from subprocess import Popen, PIPE, DEVNULL
 
 import argparse
 import sys
-
+from urllib.parse import urlparse
+from urllib.request import urlopen
+from zipfile import ZipFile
 
 external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*" \
-                   r"\{\s*(?P<protocol>(git|https))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
+                   r"\{\s*(?P<protocol>(git|https|zip|conan|conancenter|folder))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
 external_package_re = re.compile(external_package)
 
 
@@ -227,6 +230,95 @@ def build_install_args(args, tmpfilename):
     return new_args
 
 
+def run_git_clone_command(tag, tmpdirname, url):
+    git_clone_command = ["git", "clone", '-b', tag, url, tmpdirname]
+    if tag:
+        git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, tmpdirname]
+    else:
+        git_clone_command = ["git", "clone", "--recursive", url, tmpdirname]
+    run_conan_command(git_clone_command)
+
+
+def run_conan_command(conan_command):
+    print(' '.join(conan_command))
+    with Popen(conan_command) as proc:
+        if proc.errors:
+            raise Exception(f"Failed command:\n{' '.join(conan_command)}")
+
+
+def run_conan_create_command(args, full_package_name, tmpdirname):
+    print(f"\nBuilding {full_package_name} from sources:")
+    create_args = build_create_args(args, tmpdirname, full_package_name)
+    conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
+    run_conan_command(conan_create_command)
+
+
+def run_conan_install_command(args, new_conanfile):
+    install_args = build_install_args(args, new_conanfile)
+    conan_install_command = [sys.executable, "-m", "conans.conan", *install_args]
+    run_conan_command(conan_install_command)
+
+
+def install_package_from_git(args, channel, name, new_file_lines, tag, url, user, version):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        run_git_clone_command(tag, tmpdirname, url)
+        if version:
+            package_name = f"{name}/{version}"
+        else:
+            package_name = f"{name}"
+        if user and channel:
+            full_package_name = f"{package_name}@{user}/{channel}"
+        else:
+            full_package_name = f"{package_name}@"
+        if not tag:
+            run_conan_create_command(args, full_package_name, tmpdirname)
+        else:
+            with Popen([sys.executable, "-m", "conans.conan", "search", package_name],
+                       stdout=PIPE) as proc:
+                search_results = str(proc.stdout.read())
+                if "Existing package recipes:" in search_results:
+                    print(f"{full_package_name} was found in cache")
+                else:
+                    run_conan_create_command(args, full_package_name, tmpdirname)
+        new_file_lines.append(f"{full_package_name}\n")
+
+
+def uri_validator(url):
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
+
+
+def install_package_from_zip(args, channel, name, new_file_lines, tag, url, user, version):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        if uri_validator(url):
+            resp = urlopen(url)
+            with ZipFile(BytesIO(resp.read())) as zipfile:
+                zipfile.extractall(tmpdirname)
+        else:
+            with ZipFile(url, 'r') as zipfile:
+                zipfile.extractall(tmpdirname)
+
+        subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
+        if len(subfolders) == 1:
+            src_package_dir = subfolders[0]
+        else:
+            src_package_dir = tmpdirname
+
+        if version:
+            package_name = f"{name}/{version}"
+        else:
+            package_name = f"{name}"
+        if user and channel:
+            full_package_name = f"{package_name}@{user}/{channel}"
+        else:
+            full_package_name = f"{package_name}@"
+        run_conan_create_command(args, full_package_name, src_package_dir)
+        new_file_lines.append(f"{full_package_name}\n")
+
+
 def run():
     if 'install' in sys.argv:
         args = parse_args()
@@ -248,58 +340,17 @@ def run():
                         url = external_package_match.group('url')
                         tag = external_package_match.group('tag')
 
-                        with tempfile.TemporaryDirectory() as tmpdirname:
-                            git_clone_command = ["git", "clone", '-b', tag, url, tmpdirname]
-                            if tag:
-                                git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, tmpdirname]
-                            else:
-                                git_clone_command = ["git", "clone", "--recursive", url, tmpdirname]
-                            with Popen(git_clone_command, stdout=DEVNULL, stderr=DEVNULL) as proc:
-                                if proc.errors:
-                                    raise Exception(f"Failed command:\n{' '.join(git_clone_command)}")
-                            if version:
-                                package_name = f"{name}/{version}"
-                            else:
-                                package_name = f"{name}"
-                            if user and channel:
-                                full_package_name = f"{package_name}@{user}/{channel}"
-                            else:
-                                full_package_name = f"{package_name}@"
-                            if not tag:
-                                print(f"\nBuilding {full_package_name} from sources:")
-                                create_args = build_create_args(args, tmpdirname, full_package_name)
-                                conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
-                                print({' '.join(conan_create_command)})
-                                with Popen(conan_create_command) as proc:
-                                    if proc.errors:
-                                        raise Exception(f"Failed command:\n{' '.join(conan_create_command)}")
-                            else:
-                                with Popen([sys.executable, "-m", "conans.conan", "search", package_name],
-                                           stdout=PIPE) as proc:
-                                    search_results = str(proc.stdout.read())
-                                    if "Existing package recipes:" in search_results:
-                                        print(f"{full_package_name} was found in cache")
-                                    else:
-                                        print(f"\nBuilding {full_package_name} from sources:")
-                                        create_args = build_create_args(args, tmpdirname, full_package_name)
-                                        conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
-                                        print({' '.join(conan_create_command)})
-                                        with Popen(conan_create_command) as proc:
-                                            if proc.errors:
-                                                raise Exception(f"Failed command:\n{' '.join(conan_create_command)}")
-                            new_file_lines.append(f"{full_package_name}\n")
+                        if protocol == 'git':
+                            install_package_from_git(args, channel, name, new_file_lines, tag, url, user, version)
+                        elif protocol == 'zip':
+                            install_package_from_zip(args, channel, name, new_file_lines, tag, url, user, version)
                     else:
                         new_file_lines.append(str(line))
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     new_conanfile = os.path.join(tmpdirname, "conanfile.txt")
                     with open(new_conanfile, mode='w') as file:
                         file.writelines(new_file_lines)
-                    install_args = build_install_args(args, new_conanfile)
-                    conan_install_command = [sys.executable, "-m", "conans.conan", *install_args]
-                    print({' '.join(conan_install_command)})
-                    with Popen(conan_install_command) as proc:
-                        if proc.errors:
-                            raise Exception(f"Failed command:\n{' '.join(conan_install_command)}")
+                    run_conan_install_command(args, new_conanfile)
         return
 
     conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
