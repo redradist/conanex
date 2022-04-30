@@ -32,7 +32,7 @@ class ConanFileSection(Enum):
     Options = 3
 
 
-class PackageExternal:
+class ExternalPackage:
     def __init__(self, name, version, user, channel, protocol, url, **kwargs):
         self.name = name
         self.version = version
@@ -55,14 +55,63 @@ class PackageExternal:
             return "{}@".format(self.package_name)
 
 
-def parse_args():
+def parse_inspect_args():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    inspect_parser = subparsers.add_parser('inspect')
+    inspect_parser.add_argument('-a', '--attribute', type=str, help="ATTRIBUTE")
+    inspect_parser.add_argument('-r', '--remote', type=str, help="REMOTE")
+    inspect_parser.add_argument('--raw', action='store_true')
+    inspect_parser.add_argument('-j', '--json', type=str, help='JSON')
+    inspect_parser.add_argument('path_or_reference', type=str)
+    return parser.parse_args()
+
+
+def parse_info_args():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    info_parser = subparsers.add_parser('info')
+    info_parser.add_argument('--paths', action='store_true')
+    info_parser.add_argument('-bo', '--build-order', type=str, help='BUILD_ORDER')
+    info_parser.add_argument('-n', '--only', type=str, help='ONLY')
+    info_parser.add_argument('-if', '--install-folder', type=str, help='INSTALL_FOLDER')
+    info_parser.add_argument('-g', '--graph', type=str, help='GRAPH')
+    info_parser.add_argument('-db', '--dry-build', type=str, help='DRY_BUILD')
+    info_parser.add_argument('--package-filter', type=str, nargs='?', help='PACKAGE_FILTER')
+    info_parser.add_argument('-j', '--json', type=str, nargs='?', help='JSON')
+    info_parser.add_argument('-b', '--build', type=str, nargs='?', const='default', help='BUILD')
+    info_parser.add_argument('-r', '--remote', type=str, help='REMOTE')
+    info_parser.add_argument('-u', '--update', action='store_true')
+    info_parser.add_argument('-l', '--lockfile', type=str, help='LOCKFILE')
+    info_parser.add_argument('--lockfile-out', type=str, help='LOCKFILE_OUT')
+    info_parser.add_argument('-e', '--env', type=str, help='ENV_HOST')
+    info_parser.add_argument('-e:b', '--env:build', type=str, help='ENV_BUILD')
+    info_parser.add_argument('-e:h', '--env:host', type=str, help='ENV_HOST')
+    info_parser.add_argument('-o', '--options', type=str, help='OPTIONS_HOST')
+    info_parser.add_argument('-o:b', '--options:build', type=str, help='OPTIONS_BUILD')
+    info_parser.add_argument('-o:h', '--options:host', type=str, help='OPTIONS_HOST')
+    info_parser.add_argument('-pr', '--profile', type=str, help='PROFILE_HOST')
+    info_parser.add_argument('-pr:b', '--profile:build', type=str, help='PROFILE_BUILD')
+    info_parser.add_argument('-pr:h', '--profile:host', type=str, help='PROFILE_HOST')
+    info_parser.add_argument('-s', '--settings', type=str, action='append', help='SETTINGS_HOST')
+    info_parser.add_argument('-s:b', '--settings:build', type=str, action='append', nargs='+', help='SETTINGS_BUILD')
+    info_parser.add_argument('-s:h', '--settings:host', type=str, action='append', nargs='+', help='SETTINGS_HOST')
+    info_parser.add_argument('-c', '--conf', type=str, help='CONF_HOST')
+    info_parser.add_argument('-c:b', '--conf:build', type=str, help='CONF_BUILD')
+    info_parser.add_argument('-c:h', '--conf:host', type=str, help='CONF_HOST')
+    info_parser.add_argument('path_or_reference', type=str)
+    return parser.parse_args()
+
+
+def parse_install_args():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
     install_parser = subparsers.add_parser('install')
     install_parser.add_argument('-g', '--generator', type=str, help='GENERATOR')
     install_parser.add_argument('-if', '--install-folder', type=str, help='INSTALL_FOLDER')
     install_parser.add_argument('-of', '--output-folder', type=str, help='OUTPUT_FOLDER')
-    install_parser.add_argument('-mi', '--manifests-interactive', type=str, nargs='?', const='default', help='MANIFESTS_INTERACTIVE')
+    install_parser.add_argument('-mi', '--manifests-interactive', type=str, nargs='?', const='default',
+                                help='MANIFESTS_INTERACTIVE')
     install_parser.add_argument('-m', '--manifests', type=str, nargs='?', const='default', help='MANIFESTS')
     install_parser.add_argument('-v', '--verify', type=str, nargs='?', const='default', help='VERIFY')
     install_parser.add_argument('--no-imports', action='store_true')
@@ -95,7 +144,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def build_create_args(args, tmpdirname, package: PackageExternal):
+def build_create_args(args, tmpdirname, package: ExternalPackage):
     full_package_name = package.full_package_name
     new_args = ['create']
     if args.build_require:
@@ -277,47 +326,37 @@ def build_install_args(args, path_or_reference):
 
 
 def run_git_clone_command(tag, tmpdirname, url):
-    git_clone_command = ["git", "clone", '-b', tag, url, tmpdirname]
     if tag:
         git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, tmpdirname]
     else:
         git_clone_command = ["git", "clone", "--recursive", url, tmpdirname]
-    run_conan_command(git_clone_command)
+    run_command(git_clone_command)
 
 
-def run_conan_command(conan_command):
-    print(' '.join(conan_command))
-    with Popen(conan_command) as proc:
+def run_command(command):
+    print(' '.join(command))
+    with Popen(command) as proc:
         if proc.errors:
-            raise Exception("Failed command:\n{}".format(' '.join(conan_command)))
+            raise Exception("Failed command:\n{}".format(' '.join(command)))
 
 
-def run_conan_create_command(args, package: PackageExternal, tmpdirname):
+def run_conan_create_command(args, package: ExternalPackage, tmpdirname):
     print("\nBuilding {} from sources:".format(package.full_package_name))
     create_args = build_create_args(args, tmpdirname, package)
     conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
-    run_conan_command(conan_create_command)
+    run_command(conan_create_command)
 
 
 def run_conan_install_command(args, path_or_reference):
     install_args = build_install_args(args, path_or_reference)
     conan_install_command = [sys.executable, "-m", "conans.conan", *install_args]
-    run_conan_command(conan_install_command)
+    run_command(conan_install_command)
 
 
-def create_package(args, package: PackageExternal, src_package_dir):
+def is_package_in_cache(package: ExternalPackage):
     with Popen([sys.executable, "-m", "conans.conan", "search", package.package_name], stdout=PIPE) as proc:
         search_results = str(proc.stdout.read())
-        if "Existing package recipes:" in search_results:
-            print("{} was found in cache".format(package.full_package_name))
-        else:
-            run_conan_create_command(args, package, src_package_dir)
-
-
-def install_package_from_git(args, package: PackageExternal):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        run_git_clone_command(package.attrs["tag"], tmpdirname, package.url)
-        create_package(args, package, tmpdirname)
+        return "Existing package recipes:" in search_results
 
 
 def uri_validator(url):
@@ -330,6 +369,7 @@ def uri_validator(url):
 
 def extract_from_zip(tmpdirname, url):
     if uri_validator(url):
+        print("wget {}".format(url))
         resp = urlopen(url)
         with ZipFile(BytesIO(resp.read())) as zipfile:
             zipfile.extractall(tmpdirname)
@@ -340,6 +380,7 @@ def extract_from_zip(tmpdirname, url):
 
 def extract_from_tar(tmpdirname, url, archive):
     if uri_validator(url):
+        print("wget {}".format(url))
         resp = urlopen(url)
         with tarfile.open(fileobj=BytesIO(resp.read()), mode="r:{}".format(archive)) as tar:
             tar.extractall(tmpdirname)
@@ -348,41 +389,63 @@ def extract_from_tar(tmpdirname, url, archive):
             tar.extractall(tmpdirname)
 
 
-def install_package_from_zip(args, package: PackageExternal):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        filename, file_ext = os.path.splitext(package.url)
-        file_ext = file_ext[1:]
-        if file_ext == 'zip':
-            extract_from_zip(tmpdirname, package.url)
-        elif os.path.splitext(filename)[1][1:] == 'tar':
-            extract_from_tar(tmpdirname, package.url, file_ext)
-
-        subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
-        if len(subfolders) == 1:
-            src_package_dir = subfolders[0]
-        else:
-            src_package_dir = tmpdirname
-
-        create_package(args, package, src_package_dir)
+def install_package_from_git(args, package: ExternalPackage):
+    if is_package_in_cache(package):
+        print("{} was found in cache".format(package.full_package_name))
+    else:
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            run_git_clone_command(package.attrs["tag"], tmpdirname, package.url)
+            run_conan_create_command(args, package, tmpdirname)
 
 
-def install_package_from_path(args, package: PackageExternal, path: str):
-    create_package(args, package, path)
+def install_package_from_zip(args, package: ExternalPackage):
+    if is_package_in_cache(package):
+        print("{} was found in cache".format(package.full_package_name))
+    else:
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            filename, file_ext = os.path.splitext(package.url)
+            file_ext = file_ext[1:]
+            if file_ext == 'zip':
+                extract_from_zip(tmpdirname, package.url)
+            elif os.path.splitext(filename)[1][1:] == 'tar':
+                extract_from_tar(tmpdirname, package.url, file_ext)
+
+            subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
+            if len(subfolders) == 1:
+                src_package_dir = subfolders[0]
+            else:
+                src_package_dir = tmpdirname
+
+            run_conan_create_command(args, package, src_package_dir)
 
 
-def run():
-    if 'install' not in sys.argv:
-        conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
-        with Popen(conan_command) as proc:
-            pass
+def install_package_from_path(args, package: ExternalPackage, path: str):
+    if is_package_in_cache(package):
+        print("{} was found in cache".format(package.full_package_name))
+    else:
+        run_conan_create_command(args, package, path)
 
-    args = parse_args()
-    file_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
-    if os.path.exists(file_path):
-        requires: List[PackageExternal] = []
+
+def install_package_from_remote(args, package: ExternalPackage):
+    if is_package_in_cache(package):
+        print("{} was found in cache".format(package.full_package_name))
+    else:
+        updated_args = copy.copy(args)
+        updated_args.remote = package.url
+        run_conan_install_command(updated_args, package.full_package_name)
+
+
+def is_command_to_modify():
+    return 'install' in sys.argv or \
+           'info' in sys.argv
+
+
+def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
+    if os.path.exists(orig_conanfile_path):
+        requires: List[ExternalPackage] = []
         options: Dict[str, str] = {}
 
-        with open(file_path) as f:
+        with open(orig_conanfile_path) as f:
             new_file_lines = []
             context = ConanFileSection.No
             for line in f.readlines():
@@ -415,7 +478,7 @@ def run():
                     protocol = external_package_match.group('protocol')
                     url = external_package_match.group('url')
                     tag = external_package_match.group('tag')
-                    package_info = PackageExternal(name=name,
+                    package_info = ExternalPackage(name=name,
                                                    version=version,
                                                    user=user,
                                                    channel=channel,
@@ -423,12 +486,16 @@ def run():
                                                    url=url,
                                                    tag=tag)
                     requires.append(package_info)
-                    new_file_lines.append("{}\n".format(package_info.full_package_name))
+                    full_package_name = package_info.full_package_name
+                    if full_package_name[-1] == '@':
+                        full_package_name = full_package_name[:-1]
+                    new_file_lines.append("{}\n".format(full_package_name))
                 elif option_match:
                     name = option_match.group('name')
                     option = option_match.group('option')
                     value = option_match.group('value')
                     options[name] = "{}={}".format(option, value)
+                    new_file_lines.append(str(line))
                 else:
                     new_file_lines.append(str(line))
 
@@ -436,25 +503,64 @@ def run():
             if package.name in options:
                 package.options.append(options[package.name])
 
-        for package in requires:
-            if package.protocol == 'git':
-                install_package_from_git(args, package)
-            elif package.protocol == 'zip':
-                install_package_from_zip(args, package)
-            elif package.protocol == 'path':
-                conanfile_path = os.path.dirname(file_path)
-                conanfile_posix_path = Path(conanfile_path).as_posix()
-                path = str(Path("{}/{}".format(conanfile_posix_path, url)))
-                install_package_from_path(args, package, path)
-            elif package.protocol == 'remote':
-                updated_args = copy.copy(args)
-                updated_args.remote = package.url
-                run_conan_install_command(updated_args, package.full_package_name)
+        with open(new_conanfile, mode='w') as file:
+            file.writelines(new_file_lines)
+
+        return requires
+
+
+def regenerate_conanfile(args, command):
+    if '@' in args.path_or_reference:
+        command_index = sys.argv.index(command)
+        command_arg = copy.copy(sys.argv)[command_index:]
+        conan_command = [sys.executable, "-m", "conans.conan", *command_arg]
+        run_command(conan_command)
+    else:
         with tempfile.TemporaryDirectory() as tmpdirname:
-            new_conanfile = os.path.join(tmpdirname, "conanfile.txt")
-            with open(new_conanfile, mode='w') as file:
-                file.writelines(new_file_lines)
-            run_conan_install_command(args, new_conanfile)
+            orig_conanfile_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
+            new_conanfile_path = os.path.join(tmpdirname, "conanfile.txt")
+            generate_new_conanfile(args, orig_conanfile_path, new_conanfile_path)
+            command_index = sys.argv.index(command)
+            command_arg = copy.copy(sys.argv)[command_index:]
+            path_or_reference_index = command_arg.index(args.path_or_reference)
+            command_arg[path_or_reference_index] = tmpdirname
+            conan_command = [sys.executable, "-m", "conans.conan", *command_arg]
+            run_command(conan_command)
+
+
+def install_external_packages(args, requires):
+    orig_conanfile_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
+    for package in requires:
+        if package.protocol == 'git':
+            install_package_from_git(args, package)
+        elif package.protocol == 'zip':
+            install_package_from_zip(args, package)
+        elif package.protocol == 'path':
+            conanfile_path = os.path.dirname(orig_conanfile_path)
+            conanfile_posix_path = Path(conanfile_path).as_posix()
+            path = str(Path("{}/{}".format(conanfile_posix_path, package.url)))
+            install_package_from_path(args, package, path)
+        elif package.protocol == 'remote':
+            install_package_from_remote(args, package)
+
+
+def run():
+    if not is_command_to_modify():
+        conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
+        with Popen(conan_command) as proc:
+            pass
+
+    if 'info' in sys.argv:
+        args = parse_info_args()
+        regenerate_conanfile(args, 'info')
+    elif 'install' in sys.argv:
+        args = parse_install_args()
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            new_conanfile_path = os.path.join(tmpdirname, "conanfile.txt")
+            orig_conanfile_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
+            requires = generate_new_conanfile(args, orig_conanfile_path, new_conanfile_path)
+            install_external_packages(args, requires)
+            run_conan_install_command(args, new_conanfile_path)
 
 
 if __name__ == '__main__':
