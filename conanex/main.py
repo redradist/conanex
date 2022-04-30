@@ -1,6 +1,7 @@
 import copy
 import os
 import re
+import shutil
 import tarfile
 import tempfile
 from enum import Enum
@@ -441,11 +442,10 @@ def install_package_from_conanfile(args, package: ExternalPackage):
                 new_conanfile_path = os.path.join(tmpdirname, "conanfile.py")
                 with open(new_conanfile_path, "wb") as f:
                     f.write(BytesIO(resp.read()).getbuffer())
-                src_package_dir = tmpdirname
             else:
-                src_package_dir = os.path.dirname(os.path.abspath(package.url))
+                shutil.copy2(package.url, tmpdirname)
 
-            run_conan_create_command(args, package, src_package_dir)
+            run_conan_create_command(args, package, tmpdirname)
 
 
 def install_package_from_remote(args, package: ExternalPackage):
