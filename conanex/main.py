@@ -1,3 +1,4 @@
+import copy
 import os
 import re
 import tarfile
@@ -16,7 +17,7 @@ from zipfile import ZipFile
 import tarfile
 
 external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*" \
-                   r"\{\s*(?P<protocol>(git|https|zip|conan|conancenter|path))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
+                   r"\{\s*(?P<protocol>(git|zip|conan|remote|path))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
 external_package_re = re.compile(external_package)
 new_section = r"\[.*\]"
 new_section_re = re.compile(new_section)
@@ -178,7 +179,7 @@ def build_create_args(args, tmpdirname, package: PackageExternal):
     return new_args
 
 
-def build_install_args(args, tmpfilename):
+def build_install_args(args, path_or_reference):
     new_args = ['install']
     if args.generator:
         new_args.append('-g')
@@ -271,7 +272,7 @@ def build_install_args(args, tmpfilename):
     if hasattr(args, 'conf:host') and getattr(args, 'conf:host'):
         new_args.append('-c:h')
         new_args.append(getattr(args, 'conf:host'))
-    new_args.append(tmpfilename)
+    new_args.append(path_or_reference)
     return new_args
 
 
@@ -298,8 +299,8 @@ def run_conan_create_command(args, package: PackageExternal, tmpdirname):
     run_conan_command(conan_create_command)
 
 
-def run_conan_install_command(args, new_conanfile):
-    install_args = build_install_args(args, new_conanfile)
+def run_conan_install_command(args, path_or_reference):
+    install_args = build_install_args(args, path_or_reference)
     conan_install_command = [sys.executable, "-m", "conans.conan", *install_args]
     run_conan_command(conan_install_command)
 
@@ -445,6 +446,10 @@ def run():
                 conanfile_posix_path = Path(conanfile_path).as_posix()
                 path = str(Path("{}/{}".format(conanfile_posix_path, url)))
                 install_package_from_path(args, package, path)
+            elif package.protocol == 'remote':
+                updated_args = copy.copy(args)
+                updated_args.remote = package.url
+                run_conan_install_command(updated_args, package.full_package_name)
         with tempfile.TemporaryDirectory() as tmpdirname:
             new_conanfile = os.path.join(tmpdirname, "conanfile.txt")
             with open(new_conanfile, mode='w') as file:
