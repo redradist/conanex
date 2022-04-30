@@ -2,12 +2,14 @@ import os
 import re
 import tarfile
 import tempfile
+from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from subprocess import Popen, PIPE, DEVNULL
 
 import argparse
 import sys
+from typing import List, Dict
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from zipfile import ZipFile
@@ -18,6 +20,38 @@ external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+
 external_package_re = re.compile(external_package)
 new_section = r"\[.*\]"
 new_section_re = re.compile(new_section)
+option = r"\s*(?P<name>.*?)\s*:\s*(?P<option>.*?)\s*=\s*(?P<value>.*)"
+option_re = re.compile(option)
+
+
+class ConanFileSection(Enum):
+    No = 0
+    Requires = 1
+    ToolRequires = 2
+    Options = 3
+
+
+class PackageExternal:
+    def __init__(self, name, version, user, channel, protocol, url, **kwargs):
+        self.name = name
+        self.version = version
+        self.user = user
+        self.channel = channel
+        self.protocol = protocol
+        self.url = url
+        self.attrs = dict(kwargs)
+        self.options = []
+
+    @property
+    def package_name(self):
+        return "{}/{}".format(self.name, self.version)
+
+    @property
+    def full_package_name(self):
+        if self.user and self.channel:
+            return "{}/{}@".format(self.package_name, self.user, self.channel)
+        else:
+            return "{}@".format(self.package_name)
 
 
 def parse_args():
@@ -60,7 +94,8 @@ def parse_args():
     return parser.parse_args()
 
 
-def build_create_args(args, tmpdirname, package):
+def build_create_args(args, tmpdirname, package: PackageExternal):
+    full_package_name = package.full_package_name
     new_args = ['create']
     if args.build_require:
         new_args.append('--build-require')
@@ -133,8 +168,13 @@ def build_create_args(args, tmpdirname, package):
     if hasattr(args, 'conf:host') and getattr(args, 'conf:host'):
         new_args.append('-c:h')
         new_args.append(getattr(args, 'conf:host'))
+
+    for option in package.options:
+        new_args.append('-o')
+        new_args.append(option)
+
     new_args.append(tmpdirname)
-    new_args.append(package)
+    new_args.append(full_package_name)
     return new_args
 
 
@@ -248,12 +288,12 @@ def run_conan_command(conan_command):
     print(' '.join(conan_command))
     with Popen(conan_command) as proc:
         if proc.errors:
-            raise Exception(f"Failed command:\n{' '.join(conan_command)}")
+            raise Exception("Failed command:\n{}".format(' '.join(conan_command)))
 
 
-def run_conan_create_command(args, full_package_name, tmpdirname):
-    print(f"\nBuilding {full_package_name} from sources:")
-    create_args = build_create_args(args, tmpdirname, full_package_name)
+def run_conan_create_command(args, package: PackageExternal, tmpdirname):
+    print("\nBuilding {} from sources:".format(package.full_package_name))
+    create_args = build_create_args(args, tmpdirname, package)
     conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
     run_conan_command(conan_create_command)
 
@@ -264,28 +304,19 @@ def run_conan_install_command(args, new_conanfile):
     run_conan_command(conan_install_command)
 
 
-def install_package_from_git(args, channel, name, new_file_lines, tag, url, user, version):
+def create_package(args, package: PackageExternal, src_package_dir):
+    with Popen([sys.executable, "-m", "conans.conan", "search", package.package_name], stdout=PIPE) as proc:
+        search_results = str(proc.stdout.read())
+        if "Existing package recipes:" in search_results:
+            print("{} was found in cache".format(package.full_package_name))
+        else:
+            run_conan_create_command(args, package, src_package_dir)
+
+
+def install_package_from_git(args, package: PackageExternal):
     with tempfile.TemporaryDirectory() as tmpdirname:
-        run_git_clone_command(tag, tmpdirname, url)
-        if version:
-            package_name = f"{name}/{version}"
-        else:
-            package_name = f"{name}"
-        if user and channel:
-            full_package_name = f"{package_name}@{user}/{channel}"
-        else:
-            full_package_name = f"{package_name}@"
-        if not tag:
-            run_conan_create_command(args, full_package_name, tmpdirname)
-        else:
-            with Popen([sys.executable, "-m", "conans.conan", "search", package_name],
-                       stdout=PIPE) as proc:
-                search_results = str(proc.stdout.read())
-                if "Existing package recipes:" in search_results:
-                    print(f"{full_package_name} was found in cache")
-                else:
-                    run_conan_create_command(args, full_package_name, tmpdirname)
-        new_file_lines.append(f"{full_package_name}\n")
+        run_git_clone_command(package.attrs["tag"], tmpdirname, package.url)
+        create_package(args, package, tmpdirname)
 
 
 def uri_validator(url):
@@ -309,21 +340,21 @@ def extract_from_zip(tmpdirname, url):
 def extract_from_tar(tmpdirname, url, archive):
     if uri_validator(url):
         resp = urlopen(url)
-        with tarfile.open(fileobj=BytesIO(resp.read()), mode=f"r:{archive}") as tar:
+        with tarfile.open(fileobj=BytesIO(resp.read()), mode="r:{}".format(archive)) as tar:
             tar.extractall(tmpdirname)
     else:
         with tarfile.open(name=url, mode=f'r:{archive}') as tar:
             tar.extractall(tmpdirname)
 
 
-def install_package_from_zip(args, channel, name, new_file_lines, tag, url, user, version):
+def install_package_from_zip(args, package: PackageExternal):
     with tempfile.TemporaryDirectory() as tmpdirname:
-        filename, file_ext = os.path.splitext(url)
+        filename, file_ext = os.path.splitext(package.url)
         file_ext = file_ext[1:]
         if file_ext == 'zip':
-            extract_from_zip(tmpdirname, url)
+            extract_from_zip(tmpdirname, package.url)
         elif os.path.splitext(filename)[1][1:] == 'tar':
-            extract_from_tar(tmpdirname, url, file_ext)
+            extract_from_tar(tmpdirname, package.url, file_ext)
 
         subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
         if len(subfolders) == 1:
@@ -331,85 +362,94 @@ def install_package_from_zip(args, channel, name, new_file_lines, tag, url, user
         else:
             src_package_dir = tmpdirname
 
-        if version:
-            package_name = f"{name}/{version}"
-        else:
-            package_name = f"{name}"
-        if user and channel:
-            full_package_name = f"{package_name}@{user}/{channel}"
-        else:
-            full_package_name = f"{package_name}@"
-        run_conan_create_command(args, full_package_name, src_package_dir)
-        new_file_lines.append(f"{full_package_name}\n")
+        create_package(args, package, src_package_dir)
 
 
-def install_package_from_path(args, path, channel, name, new_file_lines, tag, url, user, version):
-    if version:
-        package_name = f"{name}/{version}"
-    else:
-        package_name = f"{name}"
-    if user and channel:
-        full_package_name = f"{package_name}@{user}/{channel}"
-    else:
-        full_package_name = f"{package_name}@"
-    run_conan_create_command(args, full_package_name, path)
-    new_file_lines.append(f"{full_package_name}\n")
+def install_package_from_path(args, package: PackageExternal, path: str):
+    create_package(args, package, path)
 
 
 def run():
-    if 'install' in sys.argv:
-        args = parse_args()
-        file_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
-        if os.path.exists(file_path):
-            with open(file_path) as f:
-                new_file_lines = []
-                requires_context = False
-                for line in f.readlines():
-                    if "[requires]" in line:
-                        requires_context = True
-                    elif new_section_re.match(line):
-                        requires_context = False
-                    if not requires_context:
-                        new_file_lines.append(str(line))
-                        continue
-                    if line.strip().startswith("#"):
-                        new_file_lines.append(str(line))
-                        continue
+    if 'install' not in sys.argv:
+        conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
+        with Popen(conan_command) as proc:
+            pass
 
-                    external_package_match = external_package_re.match(line)
-                    if external_package_match:
-                        name = external_package_match.group('package')
-                        version = external_package_match.group('version')
-                        if not name or not version:
-                            raise Exception(
-                                f"name and version of package is required !! Please, specify it in following format: package/version")
-                        user = external_package_match.group('user')
-                        channel = external_package_match.group('channel')
-                        protocol = external_package_match.group('protocol')
-                        url = external_package_match.group('url')
-                        tag = external_package_match.group('tag')
+    args = parse_args()
+    file_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
+    if os.path.exists(file_path):
+        requires: List[PackageExternal] = []
+        options: Dict[str, str] = {}
 
-                        if protocol == 'git':
-                            install_package_from_git(args, channel, name, new_file_lines, tag, url, user, version)
-                        elif protocol == 'zip':
-                            install_package_from_zip(args, channel, name, new_file_lines, tag, url, user, version)
-                        elif protocol == 'path':
-                            conanfile_path = os.path.dirname(file_path)
-                            conanfile_posix_path = Path(conanfile_path).as_posix()
-                            path = str(Path(f"{conanfile_posix_path}/{url}"))
-                            install_package_from_path(args, path, channel, name, new_file_lines, tag, url, user, version)
-                    else:
-                        new_file_lines.append(str(line))
-                with tempfile.TemporaryDirectory() as tmpdirname:
-                    new_conanfile = os.path.join(tmpdirname, "conanfile.txt")
-                    with open(new_conanfile, mode='w') as file:
-                        file.writelines(new_file_lines)
-                    run_conan_install_command(args, new_conanfile)
-        return
+        with open(file_path) as f:
+            new_file_lines = []
+            context = ConanFileSection.No
+            for line in f.readlines():
+                if "[requires]" in line:
+                    context = ConanFileSection.Requires
+                elif "[tool_requires]" in line:
+                    context = ConanFileSection.ToolRequires
+                elif "[options]" in line:
+                    context = ConanFileSection.Options
+                elif new_section_re.match(line):
+                    context = ConanFileSection.No
 
-    conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
-    with Popen(conan_command) as proc:
-        pass
+                if context == ConanFileSection.No:
+                    new_file_lines.append(str(line))
+                    continue
+                if line.strip().startswith("#"):
+                    new_file_lines.append(str(line))
+                    continue
+
+                external_package_match = external_package_re.match(line)
+                option_match = option_re.match(line)
+                if external_package_match:
+                    name = external_package_match.group('package')
+                    version = external_package_match.group('version')
+                    if not name or not version:
+                        raise Exception("name and version of package is required !!"
+                                        "Please, specify it in following format: package/version")
+                    user = external_package_match.group('user')
+                    channel = external_package_match.group('channel')
+                    protocol = external_package_match.group('protocol')
+                    url = external_package_match.group('url')
+                    tag = external_package_match.group('tag')
+                    package_info = PackageExternal(name=name,
+                                                   version=version,
+                                                   user=user,
+                                                   channel=channel,
+                                                   protocol=protocol,
+                                                   url=url,
+                                                   tag=tag)
+                    requires.append(package_info)
+                    new_file_lines.append("{}\n".format(package_info.full_package_name))
+                elif option_match:
+                    name = option_match.group('name')
+                    option = option_match.group('option')
+                    value = option_match.group('value')
+                    options[name] = "{}={}".format(option, value)
+                else:
+                    new_file_lines.append(str(line))
+
+        for package in requires:
+            if package.name in options:
+                package.options.append(options[package.name])
+
+        for package in requires:
+            if package.protocol == 'git':
+                install_package_from_git(args, package)
+            elif package.protocol == 'zip':
+                install_package_from_zip(args, package)
+            elif package.protocol == 'path':
+                conanfile_path = os.path.dirname(file_path)
+                conanfile_posix_path = Path(conanfile_path).as_posix()
+                path = str(Path("{}/{}".format(conanfile_posix_path, url)))
+                install_package_from_path(args, package, path)
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            new_conanfile = os.path.join(tmpdirname, "conanfile.txt")
+            with open(new_conanfile, mode='w') as file:
+                file.writelines(new_file_lines)
+            run_conan_install_command(args, new_conanfile)
 
 
 if __name__ == '__main__':
