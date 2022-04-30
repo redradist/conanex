@@ -335,9 +335,11 @@ def run_git_clone_command(tag, tmpdirname, url):
 
 def run_command(command):
     print(' '.join(command))
-    with Popen(command) as proc:
-        if proc.errors:
-            raise Exception("Failed command:\n{}".format(' '.join(command)))
+    process = Popen(command)
+    process.communicate()
+    exit_code = process.wait()
+    if exit_code != 0:
+        raise Exception("Failed command\n{}".format(' '.join(command)))
 
 
 def run_conan_create_command(args, package: ExternalPackage, tmpdirname):
@@ -424,6 +426,26 @@ def install_package_from_path(args, package: ExternalPackage, path: str):
         print("{} was found in cache".format(package.full_package_name))
     else:
         run_conan_create_command(args, package, path)
+
+
+def install_package_from_conanfile(args, package: ExternalPackage):
+    if is_package_in_cache(package):
+        print("{} was found in cache".format(package.full_package_name))
+    else:
+        if not package.url.endswith("conanfile.py"):
+            raise Exception("Url [{}] should contain conanfile.py".format(package.url))
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            if uri_validator(package.url):
+                print("wget {}".format(package.url))
+                resp = urlopen(package.url)
+                new_conanfile_path = os.path.join(tmpdirname, "conanfile.py")
+                with open(new_conanfile_path, "wb") as f:
+                    f.write(BytesIO(resp.read()).getbuffer())
+                src_package_dir = tmpdirname
+            else:
+                src_package_dir = os.path.dirname(os.path.abspath(package.url))
+
+            run_conan_create_command(args, package, src_package_dir)
 
 
 def install_package_from_remote(args, package: ExternalPackage):
@@ -540,6 +562,8 @@ def install_external_packages(args, requires):
             conanfile_posix_path = Path(conanfile_path).as_posix()
             path = str(Path("{}/{}".format(conanfile_posix_path, package.url)))
             install_package_from_path(args, package, path)
+        elif package.protocol == 'conan':
+            install_package_from_conanfile(args, package)
         elif package.protocol == 'remote':
             install_package_from_remote(args, package)
 
