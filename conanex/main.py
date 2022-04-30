@@ -51,7 +51,7 @@ class ExternalPackage:
     @property
     def full_package_name(self):
         if self.user and self.channel:
-            return "{}/{}@".format(self.package_name, self.user, self.channel)
+            return "{}@{}/{}".format(self.package_name, self.user, self.channel)
         else:
             return "{}@".format(self.package_name)
 
