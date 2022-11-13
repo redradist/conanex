@@ -17,6 +17,14 @@ from urllib.request import urlopen
 from zipfile import ZipFile
 import tarfile
 
+nenv = copy.copy(os.environ)
+paths = nenv["PATH"].split(os.pathsep)
+npaths = []
+for path in paths:
+    if path not in npaths:
+        npaths.append(path)
+nenv["PATH"] = os.pathsep.join(npaths)
+
 external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*" \
                    r"\{\s*(?P<protocol>(git|zip|conan|remote|path))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
 external_package_re = re.compile(external_package)
@@ -336,7 +344,7 @@ def run_git_clone_command(tag, tmpdirname, url):
 
 def run_command(command):
     print(' '.join(command))
-    process = Popen(command)
+    process = Popen(command, shell=True, env=nenv)
     process.communicate()
     exit_code = process.wait()
     if exit_code != 0:
@@ -357,7 +365,8 @@ def run_conan_install_command(args, path_or_reference):
 
 
 def is_package_in_cache(package: ExternalPackage):
-    with Popen([sys.executable, "-m", "conans.conan", "search", package.package_name], stdout=PIPE) as proc:
+    conan_command = [sys.executable, "-m", "conans.conan", "search", package.package_name]
+    with Popen(conan_command, shell=True, stdout=PIPE, env=nenv) as proc:
         search_results = str(proc.stdout.read())
         return "Existing package recipes:" in search_results
 
@@ -571,7 +580,7 @@ def install_external_packages(args, requires):
 def run():
     if not is_command_to_modify():
         conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
-        with Popen(conan_command) as proc:
+        with Popen(conan_command, shell=True, env=nenv) as proc:
             pass
 
     if 'info' in sys.argv:
