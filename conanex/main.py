@@ -25,6 +25,8 @@ for path in paths:
         npaths.append(path)
 nenv["PATH"] = os.pathsep.join(npaths)
 
+detect_external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*\{"
+detect_external_package_re = re.compile(detect_external_package)
 external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*" \
                    r"\{\s*(?P<protocol>(git|zip|conan|remote|path))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
 external_package_re = re.compile(external_package)
@@ -479,6 +481,7 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
         with open(orig_conanfile_path) as f:
             new_file_lines = []
             context = ConanFileSection.No
+            external_package_lines = []
             for line in f.readlines():
                 if "[requires]" in line:
                     context = ConanFileSection.Requires
@@ -496,9 +499,15 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
                     new_file_lines.append(str(line))
                     continue
 
-                external_package_match = external_package_re.match(line)
+                detect_external_package_match = detect_external_package_re.match(line)
                 option_match = option_re.match(line)
-                if external_package_match:
+                if detect_external_package_match or len(external_package_lines) > 0:
+                    external_package_lines.append(line)
+                    external_package_match = external_package_re.match("".join(external_package_lines))
+                    if not external_package_match:
+                        continue
+
+                    external_package_lines = []
                     name = external_package_match.group('package')
                     version = external_package_match.group('version')
                     if not name or not version:
@@ -529,6 +538,10 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
                     new_file_lines.append(str(line))
                 else:
                     new_file_lines.append(str(line))
+
+            if len(external_package_lines) > 0:
+                raise Exception(f"external package not fully specified:\n{''.join(external_package_lines)}\n\n"
+                                "Please, check a syntax for conanex !!")
 
         for package in requires:
             if package.name in options:
