@@ -27,9 +27,8 @@ nenv["PATH"] = os.pathsep.join(npaths)
 
 detect_external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*\{"
 detect_external_package_re = re.compile(detect_external_package)
-external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*" \
-                   r"\{\s*(?P<protocol>(git|zip|conan|remote|path))\s*=\s*\"(?P<url>.+?)\"\s*(,\s*tag\s*=\s*\"(?P<tag>.+?)\"\s*)?\}"
-external_package_re = re.compile(external_package)
+external_package_property = r"^\s*(?P<property>.+?)\s*=\s*(?P<value>.+?)\s*$"
+external_package_property_re = re.compile(external_package_property)
 new_section = r"\[.*\]"
 new_section_re = re.compile(new_section)
 option = r"\s*(?P<name>.*?)\s*:\s*(?P<option>.*?)\s*=\s*(?P<value>.*)"
@@ -503,9 +502,22 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
                 option_match = option_re.match(line)
                 if detect_external_package_match or len(external_package_lines) > 0:
                     external_package_lines.append(line)
-                    external_package_match = external_package_re.match("".join(external_package_lines))
-                    if not external_package_match:
+                    if '}' not in line:
                         continue
+
+                    external_package_match = detect_external_package_re.match(external_package_lines[0])
+
+                    external_package_str = "".join(external_package_lines)
+                    start_props = external_package_str.find('{') + 1
+                    end_props = external_package_str.find('}', start_props)
+                    external_package_props_str = external_package_str[start_props:end_props]
+                    props_str = external_package_props_str.split(',')
+                    properties = {}
+                    for prop in props_str:
+                        external_package_property_match = external_package_property_re.match(prop)
+                        if not external_package_property_match:
+                            continue
+                        properties[external_package_property_match.group('property')] = external_package_property_match.group('value')
 
                     external_package_lines = []
                     name = external_package_match.group('package')
@@ -515,9 +527,20 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
                                         "Please, specify it in following format: package/version")
                     user = external_package_match.group('user')
                     channel = external_package_match.group('channel')
-                    protocol = external_package_match.group('protocol')
-                    url = external_package_match.group('url')
-                    tag = external_package_match.group('tag')
+                    protocols = []
+                    for prot in ["git", "zip", "conan", "remote", "path"]:
+                        if prot in properties:
+                            protocols.append(prot)
+
+                    if len(protocols) == 0:
+                        raise Exception(f"No protocols where found. Protocol should be specified from the following list: {protocols}")
+                    if len(protocols) > 1:
+                        raise Exception(f"From the following list, only single protocol should be specified: {protocols}")
+
+                    protocol = protocols[0]
+                    url = properties[protocol].strip("'").strip('"')
+                    tag = properties['tag'] if 'tag' in properties else ""
+
                     package_info = ExternalPackage(name=name,
                                                    version=version,
                                                    user=user,
