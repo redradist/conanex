@@ -1,21 +1,21 @@
 import copy
+import hashlib
 import os
 import re
 import shutil
 import tarfile
 import tempfile
+import argparse
+import sys
+
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from subprocess import Popen, PIPE, DEVNULL
-
-import argparse
-import sys
 from typing import List, Dict
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from zipfile import ZipFile
-import tarfile
 
 nenv = copy.copy(os.environ)
 paths = nenv["PATH"].split(os.pathsep)
@@ -63,6 +63,24 @@ class ExternalPackage:
             return "{}@{}/{}".format(self.package_name, self.user, self.channel)
         else:
             return "{}@".format(self.package_name)
+
+    @property
+    def package_hash_algo(self):
+        hash_algo = None
+        if 'md5' in self.attrs:
+            hash_algo = 'md5'
+        if 'sha256' in self.attrs:
+            hash_algo = 'sha256'
+        if 'sha512' in self.attrs:
+            hash_algo = 'sha512'
+        return hash_algo
+
+    @property
+    def package_hash_code(self):
+        hash = None
+        if self.package_hash_algo:
+            hash = self.attrs[self.package_hash_algo]
+        return hash.lower().replace("'", "").replace('"', '')
 
 
 def parse_inspect_args():
@@ -365,6 +383,42 @@ def run_conan_install_command(args, path_or_reference):
     run_command(conan_install_command)
 
 
+def create_hash_algo(hash_algo):
+    hash = None
+    if 'md5' == hash_algo:
+        hash = hashlib.md5()
+    if 'sha256' == hash_algo:
+        hash = hashlib.sha256()
+    if 'sha512' == hash_algo:
+        hash = hashlib.sha512()
+    return hash
+
+
+def calculate_bytes_io_hash(filename: BytesIO, hash):
+    # Read and update hash string value in blocks of 4K
+    for byte_block in iter(lambda: filename.read(4096), b""):
+        hash.update(byte_block)
+    return hash.hexdigest().lower()
+
+
+def calculate_file_hash(filename, hash):
+    with open(filename, "rb") as f:
+        # Read and update hash string value in blocks of 4K
+        for byte_block in iter(lambda: f.read(4096), b""):
+            hash.update(byte_block)
+        return hash.hexdigest().lower()
+
+
+def verify_hash_code(file: str | BytesIO, package: ExternalPackage):
+    if package.package_hash_algo:
+        if type(file) == BytesIO:
+            hash_code = calculate_bytes_io_hash(file, create_hash_algo(package.package_hash_algo))
+        else:
+            hash_code = calculate_file_hash(file, create_hash_algo(package.package_hash_algo))
+        if package.package_hash_code != hash_code:
+            raise Exception(f"{file} file is not equal to {hash_code}")
+
+
 def is_package_in_cache(package: ExternalPackage):
     conan_command = [sys.executable, "-m", "conans.conan", "search", package.package_name]
     with Popen(conan_command, shell=True, stdout=PIPE, env=nenv) as proc:
@@ -380,24 +434,30 @@ def uri_validator(url):
         return False
 
 
-def extract_from_zip(tmpdirname, url):
+def extract_from_zip(tmpdirname, url, package: ExternalPackage):
     if uri_validator(url):
         print("wget {}".format(url))
         resp = urlopen(url)
-        with ZipFile(BytesIO(resp.read())) as zipfile:
+        bytes_io = BytesIO(resp.read())
+        verify_hash_code(bytes_io, package)
+        with ZipFile(bytes_io) as zipfile:
             zipfile.extractall(tmpdirname)
     else:
+        verify_hash_code(url, package)
         with ZipFile(url, 'r') as zipfile:
             zipfile.extractall(tmpdirname)
 
 
-def extract_from_tar(tmpdirname, url, archive):
+def extract_from_tar(tmpdirname, url, archive, package: ExternalPackage):
     if uri_validator(url):
         print("wget {}".format(url))
         resp = urlopen(url)
-        with tarfile.open(fileobj=BytesIO(resp.read()), mode="r:{}".format(archive)) as tar:
+        bytes_io = BytesIO(resp.read())
+        verify_hash_code(bytes_io, package)
+        with tarfile.open(fileobj=bytes_io, mode="r:{}".format(archive)) as tar:
             tar.extractall(tmpdirname)
     else:
+        verify_hash_code(url, package)
         with tarfile.open(name=url, mode=f'r:{archive}') as tar:
             tar.extractall(tmpdirname)
 
@@ -419,9 +479,9 @@ def install_package_from_zip(args, package: ExternalPackage):
             filename, file_ext = os.path.splitext(package.url)
             file_ext = file_ext[1:]
             if file_ext == 'zip':
-                extract_from_zip(tmpdirname, package.url)
+                extract_from_zip(tmpdirname, package.url, package)
             elif os.path.splitext(filename)[1][1:] == 'tar':
-                extract_from_tar(tmpdirname, package.url, file_ext)
+                extract_from_tar(tmpdirname, package.url, file_ext, package)
 
             subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
             if len(subfolders) == 1:
@@ -450,8 +510,10 @@ def install_package_from_conanfile(args, package: ExternalPackage):
                 print("wget {}".format(package.url))
                 resp = urlopen(package.url)
                 new_conanfile_path = os.path.join(tmpdirname, "conanfile.py")
+                bytes_io = BytesIO(resp.read())
                 with open(new_conanfile_path, "wb") as f:
-                    f.write(BytesIO(resp.read()).getbuffer())
+                    f.write(bytes_io.getbuffer())
+                verify_hash_code(new_conanfile_path, package)
             else:
                 shutil.copy2(package.url, tmpdirname)
 
@@ -539,7 +601,6 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
 
                     protocol = protocols[0]
                     url = properties[protocol].strip("'").strip('"')
-                    tag = properties['tag'] if 'tag' in properties else ""
 
                     package_info = ExternalPackage(name=name,
                                                    version=version,
@@ -547,7 +608,7 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
                                                    channel=channel,
                                                    protocol=protocol,
                                                    url=url,
-                                                   tag=tag)
+                                                   **properties)
                     requires.append(package_info)
                     full_package_name = package_info.full_package_name
                     if full_package_name[-1] == '@':

@@ -8,13 +8,20 @@ Consider the following `conanfile.txt`:
 ```console
 [requires]
 poco/1.9.4
-# flatbuffers/2.0.0 { git = "https://github.com/google/flatbuffers", tag = "v2.0.0" }
-# flatbuffers/2.0.0 { zip = "https://github.com/google/flatbuffers/archive/refs/tags/v2.0.0.zip" }
-flatbuffers/2.0.0 { zip = "https://github.com/google/flatbuffers/archive/refs/tags/v2.0.0.tar.gz" }
+flatbuffers/22.10.26 {
+    zip = 'https://github.com/google/flatbuffers/archive/refs/tags/v22.10.26.zip',
+    sha256 = 'B97C7C017B05F20B17939FEBD413C75201F5B704C8DE49ADB0B35A70D50478CD'
+}
+ctre/3.6 { remote = "conancenter" }
+# Examples:
+# flatbuffers/2.0.0 {
+#     git = https://github.com/google/flatbuffers,
+#     tag = v2.0.0
+# }
+# flatbuffers/2.0.0@user/testing { zip = "https://github.com/google/flatbuffers/archive/refs/tags/v2.0.0.tar.gz" }
 # flatbuffers/2.0.0 { conan = "https://raw.githubusercontent.com/google/flatbuffers/master/conanfile.py" }
 # CTRE/3.6 { git = "https://github.com/hanickadot/compile-time-regular-expressions" }
 # CTRE/3.6 { path = "../../../../compile-time-regular-expressions" }
-ctre/3.6 { remote = "conancenter" }
 
 [options]
 flatbuffers:shared=True
