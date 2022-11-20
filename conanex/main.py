@@ -417,11 +417,12 @@ def calculate_file_hash(filename, hash):
 def verify_hash_code(file: str | BytesIO, package: ExternalPackage):
     if package.package_hash_algo:
         if type(file) == BytesIO:
-            hash_code = calculate_bytes_io_hash(file, create_hash_algo(package.package_hash_algo))
+            hash_code = calculate_bytes_io_hash(copy.copy(file), create_hash_algo(package.package_hash_algo))
         else:
             hash_code = calculate_file_hash(file, create_hash_algo(package.package_hash_algo))
         if package.package_hash_code != hash_code:
-            raise Exception(f"Calculated hash code '{hash_code}' of {file} file is not equal to {package.package_hash_code}")
+            raise Exception("Calculated hash code '{}' of {} file is not equal to {}"
+                            .format(hash_code, file, package.package_hash_code))
 
 
 def is_package_in_cache(package: ExternalPackage):
@@ -585,9 +586,11 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
                             protocols.append(prot)
 
                     if len(protocols) == 0:
-                        raise Exception(f"No protocols where found. Protocol should be specified from the following list: {protocols}")
+                        raise Exception("No protocols where found. Protocol should be specified from the following list: {}"
+                                        .format(protocols))
                     if len(protocols) > 1:
-                        raise Exception(f"From the following list, only single protocol should be specified: {protocols}")
+                        raise Exception("From the following list, only single protocol should be specified: {}"
+                                        .format(protocols))
 
                     protocol = protocols[0]
                     url = properties[protocol].strip("'").strip('"')
@@ -614,8 +617,9 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
                     new_file_lines.append(str(line))
 
             if len(external_package_lines) > 0:
-                raise Exception(f"external package not fully specified:\n{''.join(external_package_lines)}\n\n"
-                                "Please, check a syntax for conanex !!")
+                raise Exception("external package not fully specified:\n{}\n\n"
+                                "Please, check a syntax for conanex !!"
+                                .format(''.join(external_package_lines)))
 
         for package in requires:
             if package.name in options:
@@ -654,7 +658,8 @@ def install_external_packages(args, requires: List[ExternalPackage]):
                 print("{} was found in cache".format(package.full_package_name))
                 continue
             if package.protocol not in ['zip', 'conan'] and package.package_hash_algo:
-                raise Exception(f"hash[{package.package_hash_algo}] allowed only for zip and conan protocols")
+                raise Exception("hash[{}] allowed only for zip and conan protocols"
+                                .format(package.package_hash_algo))
             try:
                 if package.protocol == 'git':
                     install_package_from_git(args, package)
