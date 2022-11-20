@@ -31,12 +31,14 @@ As you can see in this file we have 5 additional ways to install package
 
 Lets describe them:
 1) `git` allow to download package using Git and run `conanfile.py` located in root directory
-2) `zip` (_url/path_) allow installing package from archive, unpack it and run _conanfile.py_ located in root directory.
+2) `zip` (_url/file_path_) allow installing package from archive, unpack it and run _conanfile.py_ located in root directory.
    There are the following formats that supported: _zip_, _tar.gz_, _tar.bz2_
-3) `conan` (_url/path_) if you receipt is completely independent, then you could specify url/path to it to create package.
+3) `conan` (_url/file_path_) if you receipt is completely independent, then you could specify url/path to it to create package.
    Independent means that receipt could download source files by itself.
 4) `path` allow to install package from folder
 5) `remote` specify separate remote for this particular package
+
+_url/file_path_ supports the hash calculation with options: `md5`, `sha256` and `sha512`
 
 To install `conanex`:
 ```console
