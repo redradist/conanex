@@ -384,7 +384,7 @@ def run_conan_install_command(args, path_or_reference):
 
 
 def run_conan_remove_command(path_or_reference):
-    conan_remove_command = [sys.executable, "-m", "conans.conan", "remove", path_or_reference]
+    conan_remove_command = [sys.executable, "-m", "conans.conan", "remove", "--force", path_or_reference]
     run_command(conan_remove_command)
 
 
@@ -421,7 +421,7 @@ def verify_hash_code(file: str | BytesIO, package: ExternalPackage):
         else:
             hash_code = calculate_file_hash(file, create_hash_algo(package.package_hash_algo))
         if package.package_hash_code != hash_code:
-            raise Exception(f"{file} file is not equal to {hash_code}")
+            raise Exception(f"Calculated hash code '{hash_code}' of {file} file is not equal to {package.package_hash_code}")
 
 
 def is_package_in_cache(package: ExternalPackage):
@@ -468,70 +468,55 @@ def extract_from_tar(tmpdirname, url, archive, package: ExternalPackage):
 
 
 def install_package_from_git(args, package: ExternalPackage):
-    if is_package_in_cache(package):
-        print("{} was found in cache".format(package.full_package_name))
-    else:
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            run_git_clone_command(package.attrs["tag"], tmpdirname, package.url)
-            run_conan_create_command(args, package, tmpdirname)
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        run_git_clone_command(package.attrs["tag"], tmpdirname, package.url)
+        run_conan_create_command(args, package, tmpdirname)
 
 
 def install_package_from_zip(args, package: ExternalPackage):
-    if is_package_in_cache(package):
-        print("{} was found in cache".format(package.full_package_name))
-    else:
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            filename, file_ext = os.path.splitext(package.url)
-            file_ext = file_ext[1:]
-            if file_ext == 'zip':
-                extract_from_zip(tmpdirname, package.url, package)
-            elif os.path.splitext(filename)[1][1:] == 'tar':
-                extract_from_tar(tmpdirname, package.url, file_ext, package)
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        filename, file_ext = os.path.splitext(package.url)
+        file_ext = file_ext[1:]
+        if file_ext == 'zip':
+            extract_from_zip(tmpdirname, package.url, package)
+        elif os.path.splitext(filename)[1][1:] == 'tar':
+            extract_from_tar(tmpdirname, package.url, file_ext, package)
 
-            subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
-            if len(subfolders) == 1:
-                src_package_dir = subfolders[0]
-            else:
-                src_package_dir = tmpdirname
+        subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
+        if len(subfolders) == 1:
+            src_package_dir = subfolders[0]
+        else:
+            src_package_dir = tmpdirname
 
-            run_conan_create_command(args, package, src_package_dir)
+        run_conan_create_command(args, package, src_package_dir)
 
 
 def install_package_from_path(args, package: ExternalPackage, path: str):
-    if is_package_in_cache(package):
-        print("{} was found in cache".format(package.full_package_name))
-    else:
-        run_conan_create_command(args, package, path)
+    run_conan_create_command(args, package, path)
 
 
 def install_package_from_conanfile(args, package: ExternalPackage):
-    if is_package_in_cache(package):
-        print("{} was found in cache".format(package.full_package_name))
-    else:
-        if not package.url.endswith("conanfile.py"):
-            raise Exception("Url [{}] should contain conanfile.py".format(package.url))
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            if uri_validator(package.url):
-                print("wget {}".format(package.url))
-                resp = urlopen(package.url)
-                new_conanfile_path = os.path.join(tmpdirname, "conanfile.py")
-                bytes_io = BytesIO(resp.read())
-                with open(new_conanfile_path, "wb") as f:
-                    f.write(bytes_io.getbuffer())
-                verify_hash_code(new_conanfile_path, package)
-            else:
-                shutil.copy2(package.url, tmpdirname)
+    if not package.url.endswith("conanfile.py"):
+        raise Exception("Url [{}] should contain conanfile.py".format(package.url))
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        if uri_validator(package.url):
+            print("wget {}".format(package.url))
+            resp = urlopen(package.url)
+            new_conanfile_path = os.path.join(tmpdirname, "conanfile.py")
+            bytes_io = BytesIO(resp.read())
+            with open(new_conanfile_path, "wb") as f:
+                f.write(bytes_io.getbuffer())
+            verify_hash_code(new_conanfile_path, package)
+        else:
+            shutil.copy2(package.url, tmpdirname)
 
-            run_conan_create_command(args, package, tmpdirname)
+        run_conan_create_command(args, package, tmpdirname)
 
 
 def install_package_from_remote(args, package: ExternalPackage):
-    if is_package_in_cache(package):
-        print("{} was found in cache".format(package.full_package_name))
-    else:
-        updated_args = copy.copy(args)
-        updated_args.remote = package.url
-        run_conan_install_command(updated_args, package.full_package_name)
+    updated_args = copy.copy(args)
+    updated_args.remote = package.url
+    run_conan_install_command(updated_args, package.full_package_name)
 
 
 def is_command_to_modify():
@@ -661,10 +646,15 @@ def regenerate_conanfile(args, command):
             run_command(conan_command)
 
 
-def install_external_packages(args, requires):
+def install_external_packages(args, requires: List[ExternalPackage]):
     orig_conanfile_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
     for package in requires:
         if package.protocol in ['git', 'zip', 'path', 'conan', 'remote']:
+            if is_package_in_cache(package):
+                print("{} was found in cache".format(package.full_package_name))
+                continue
+            if package.protocol not in ['zip', 'conan'] and package.package_hash_algo:
+                raise Exception(f"hash[{package.package_hash_algo}] allowed only for zip and conan protocols")
             try:
                 if package.protocol == 'git':
                     install_package_from_git(args, package)
