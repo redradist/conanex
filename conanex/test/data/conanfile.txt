@@ -1,5 +1,5 @@
 [requires]
-poco/1.9.4
+poco/1.12.4
 flatbuffers/22.10.26 {
     zip = 'https://github.com/google/flatbuffers/archive/refs/tags/v22.10.26.zip',
     sha256 = 'B97C7C017B05F20B17939FEBD413C75201F5B704C8DE49ADB0B35A70D50478CD'

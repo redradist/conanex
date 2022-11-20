@@ -383,6 +383,11 @@ def run_conan_install_command(args, path_or_reference):
     run_command(conan_install_command)
 
 
+def run_conan_remove_command(path_or_reference):
+    conan_remove_command = [sys.executable, "-m", "conans.conan", "remove", path_or_reference]
+    run_command(conan_remove_command)
+
+
 def create_hash_algo(hash_algo):
     hash = None
     if 'md5' == hash_algo:
@@ -659,19 +664,24 @@ def regenerate_conanfile(args, command):
 def install_external_packages(args, requires):
     orig_conanfile_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
     for package in requires:
-        if package.protocol == 'git':
-            install_package_from_git(args, package)
-        elif package.protocol == 'zip':
-            install_package_from_zip(args, package)
-        elif package.protocol == 'path':
-            conanfile_path = os.path.dirname(orig_conanfile_path)
-            conanfile_posix_path = Path(conanfile_path).as_posix()
-            path = str(Path("{}/{}".format(conanfile_posix_path, package.url)))
-            install_package_from_path(args, package, path)
-        elif package.protocol == 'conan':
-            install_package_from_conanfile(args, package)
-        elif package.protocol == 'remote':
-            install_package_from_remote(args, package)
+        if package.protocol in ['git', 'zip', 'path', 'conan', 'remote']:
+            try:
+                if package.protocol == 'git':
+                    install_package_from_git(args, package)
+                elif package.protocol == 'zip':
+                    install_package_from_zip(args, package)
+                elif package.protocol == 'path':
+                    conanfile_path = os.path.dirname(orig_conanfile_path)
+                    conanfile_posix_path = Path(conanfile_path).as_posix()
+                    path = str(Path("{}/{}".format(conanfile_posix_path, package.url)))
+                    install_package_from_path(args, package, path)
+                elif package.protocol == 'conan':
+                    install_package_from_conanfile(args, package)
+                elif package.protocol == 'remote':
+                    install_package_from_remote(args, package)
+            except:
+                run_conan_remove_command(package.full_package_name)
+                raise
 
 
 def run():
