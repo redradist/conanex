@@ -1,8 +1,31 @@
 ## ConanEx - Conan Extended, conan that more decentralize
 
 ### Overview
-What it allows ?
+What does it for ?
 
+ConanEx is using [`conan`](https://github.com/conan-io/conan) as underlying tool.
+ConanEx is a command line wrapper around `conan` with additional features.
+
+Consider the following workflow:
+```console
+wget https://github.com/google/flatbuffers/archive/refs/tags/v22.10.26.zip
+unzip v22.10.26.zip -d flatbuffers_22_10_26
+conan create flatbuffers/22.10.26 flatbuffers_22_10_26/
+conan create ctre/3.6 ../../../../compile-time-regular-expressions
+```
+
+Such workflow has a following drawbacks:
+1. Not all dependencies are specified in `conanfile.txt`
+2. It adds a boilerplate commands to execute each time when environment should be deployed
+
+Lets also describe `conancenter` drawbacks:
+1. Centralized repository (do not allow decentralized behaviour)
+2. Hard to add `conanfile.py` receipt to [`conan-center-index`](https://github.com/conan-io/conan-center-index). It takes too long to pass review with all unwritten `conan-center-index` rules for `conanfile.py`
+
+Lets also describe a current `conanfile.txt` drawbacks:
+1. `conanfile.txt` does not allow specifying dependencies to other package sources like `git`, remote `zip` archive and etc. It makes it less decentralized as claimed
+
+Let's consider what ConanEx brings to `conanfile.txt` syntax.
 Consider the following `conanfile.txt`:
 
 ```console
