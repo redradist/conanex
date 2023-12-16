@@ -41,7 +41,7 @@ ctre/3.6 { remote = "conancenter" }
 #     git = https://github.com/google/flatbuffers,
 #     tag = v2.0.0
 # }
-# flatbuffers/2.0.0@user/testing { zip = "https://github.com/google/flatbuffers/archive/refs/tags/v2.0.0.tar.gz" }
+# flatbuffers/2.0.0 { zip = "https://github.com/google/flatbuffers/archive/refs/tags/v2.0.0.tar.gz" }
 # flatbuffers/2.0.0 { conan = "https://raw.githubusercontent.com/google/flatbuffers/master/conanfile.py" }
 # CTRE/3.6 { git = "https://github.com/hanickadot/compile-time-regular-expressions" }
 # CTRE/3.6 { path = "../../../../compile-time-regular-expressions" }
