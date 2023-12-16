@@ -138,38 +138,218 @@ def parse_install_args():
     install_parser.add_argument('-g', '--generator', type=str, help='GENERATOR')
     install_parser.add_argument('-if', '--install-folder', type=str, help='INSTALL_FOLDER')
     install_parser.add_argument('-of', '--output-folder', type=str, help='OUTPUT_FOLDER')
-    install_parser.add_argument('-mi', '--manifests-interactive', type=str, nargs='?', const='default',
-                                help='MANIFESTS_INTERACTIVE')
-    install_parser.add_argument('-m', '--manifests', type=str, nargs='?', const='default', help='MANIFESTS')
     install_parser.add_argument('-v', '--verify', type=str, nargs='?', const='default', help='VERIFY')
+    install_parser.add_argument('--requires', type=str, action='append', nargs='+', help='REQUIRES')
+    install_parser.add_argument('--tool-requires', type=str, action='append', nargs='+', help='TOOL_REQUIRES')
+    install_parser.add_argument('--deployer-folder', type=str, help='DEPLOYER_FOLDER')
+    install_parser.add_argument('-f', '--format', type=str, help='FORMAT')
+    install_parser.add_argument('-h', '--help', action='store_true')
+    install_parser.add_argument('--name', type=str, help='NAME')
+    install_parser.add_argument('--version', type=str, help='VERSION')
+    install_parser.add_argument('--user', type=str, help='USER')
+    install_parser.add_argument('--channel', type=str, help='CHANNEL')
     install_parser.add_argument('--no-imports', action='store_true')
     install_parser.add_argument('--build-require', action='store_true')
     install_parser.add_argument('-j', '--json', type=str, help='JSON')
+    install_parser.add_argument('-d', '--deployer', type=str, help='DEPLOYER')
     install_parser.add_argument('-b', '--build', type=str, nargs='?', const='default', help='BUILD')
     install_parser.add_argument('-r', '--remote', type=str, help='REMOTE')
+    install_parser.add_argument('-nr', '--no-remote', type=str, help='NO_REMOTE')
     install_parser.add_argument('-u', '--update', action='store_true')
     install_parser.add_argument('-l', '--lockfile', type=str, help='LOCKFILE')
+    install_parser.add_argument('--lockfile-partial', type=str, help='LOCKFILE_PARTIAL')
     install_parser.add_argument('--lockfile-out', type=str, help='LOCKFILE_OUT')
-    install_parser.add_argument('-e', '--env', type=str, help='ENV_HOST')
-    install_parser.add_argument('-e:b', '--env:build', type=str, help='ENV_BUILD')
-    install_parser.add_argument('-e:h', '--env:host', type=str, help='ENV_HOST')
-    install_parser.add_argument('-o', '--options', type=str, help='OPTIONS_HOST')
-    install_parser.add_argument('-o:b', '--options:build', type=str, help='OPTIONS_BUILD')
-    install_parser.add_argument('-o:h', '--options:host', type=str, help='OPTIONS_HOST')
+    install_parser.add_argument('--lockfile-packages', type=str, help='LOCKFILE_PACKAGES')
+    install_parser.add_argument('--lockfile-clean', type=str, help='LOCKFILE_CLEAN')
+    install_parser.add_argument('--lockfile-overrides', type=str, help='LOCKFILE_OVERRIDES')
     install_parser.add_argument('-pr', '--profile', type=str, help='PROFILE_HOST')
     install_parser.add_argument('-pr:b', '--profile:build', type=str, help='PROFILE_BUILD')
     install_parser.add_argument('-pr:h', '--profile:host', type=str, help='PROFILE_HOST')
-    install_parser.add_argument('-s', '--settings', type=str, action='append', help='SETTINGS_HOST')
+    install_parser.add_argument('-pr:a', '--profile:all', type=str, help='PROFILE_ALL')
+    install_parser.add_argument('-o', '--options', type=str, action='append', nargs='+', help='OPTIONS_HOST')
+    install_parser.add_argument('-o:b', '--options:build', type=str, action='append', nargs='+', help='OPTIONS_BUILD')
+    install_parser.add_argument('-o:h', '--options:host', type=str, action='append', nargs='+', help='OPTIONS_HOST')
+    install_parser.add_argument('-o:a', '--options:all', type=str, action='append', nargs='+', help='OPTIONS_ALL')
+    install_parser.add_argument('-s', '--settings', type=str, action='append', nargs='+', help='SETTINGS_HOST')
     install_parser.add_argument('-s:b', '--settings:build', type=str, action='append', nargs='+', help='SETTINGS_BUILD')
     install_parser.add_argument('-s:h', '--settings:host', type=str, action='append', nargs='+', help='SETTINGS_HOST')
-    install_parser.add_argument('-c', '--conf', type=str, help='CONF_HOST')
-    install_parser.add_argument('-c:b', '--conf:build', type=str, help='CONF_BUILD')
-    install_parser.add_argument('-c:h', '--conf:host', type=str, help='CONF_HOST')
-    install_parser.add_argument('--lockfile-node-id', type=str, help='LOCKFILE_NODE_ID')
-    install_parser.add_argument('--require-override', type=str, help='REQUIRE_OVERRIDE')
+    install_parser.add_argument('-s:a', '--settings:all', type=str, action='append', nargs='+', help='SETTINGS_ALL')
+    install_parser.add_argument('-c', '--conf', type=str, action='append', nargs='+', help='CONF_HOST')
+    install_parser.add_argument('-c:b', '--conf:build', type=str, action='append', nargs='+', help='CONF_BUILD')
+    install_parser.add_argument('-c:h', '--conf:host', type=str, action='append', nargs='+', help='CONF_HOST')
+    install_parser.add_argument('-c:a', '--conf:all', type=str, action='append', nargs='+', help='CONF_ALL')
     install_parser.add_argument('path_or_reference', type=str)
     install_parser.add_argument('reference', type=str, nargs='?')
     return parser.parse_args()
+
+
+def build_install_args(args, path_or_reference):
+    new_args = ['install']
+
+    if args.generator:
+        new_args.append('-g')
+        new_args.append(args.generator)
+    if args.install_folder:
+        new_args.append('-if')
+        new_args.append(args.install_folder)
+    if args.output_folder:
+        new_args.append('-of')
+        new_args.append(args.output_folder)
+    if args.help:
+        new_args.append('-h')
+    if args.format:
+        new_args.append('-f')
+        new_args.append(args.format)
+
+    if args.name:
+        new_args.append('--name')
+        new_args.append(args.name)
+    if args.version:
+        new_args.append('--version')
+        new_args.append(args.version)
+    if args.user:
+        new_args.append('--user')
+        new_args.append(args.user)
+    if args.channel:
+        new_args.append('--channel')
+        new_args.append(args.channel)
+
+    if args.deployer_folder:
+        new_args.append('--deployer-folder')
+        new_args.append(args.deployer_folder)
+    if args.deployer:
+        new_args.append('--deployer')
+        new_args.append(args.deployer)
+
+    if args.channel:
+        new_args.append('--channel')
+        new_args.append(args.channel)
+
+    if hasattr(args, 'requires') and getattr(args, 'requires'):
+        for require in getattr(args, 'requires'):
+            new_args.append('-r')
+            new_args.append(require)
+    if hasattr(args, 'tool-requires') and getattr(args, 'tool-requires'):
+        for require in getattr(args, 'tool-requires'):
+            new_args.append('--tool-requires')
+            new_args.append(require)
+
+    if args.build_require:
+        new_args.append('--build-require')
+    if args.no_imports:
+        new_args.append('--no-imports')
+        new_args.append(args.no_imports)
+    if args.build_require:
+        new_args.append('--build-require')
+    if args.json:
+        new_args.append('-j')
+        new_args.append(args.json)
+    if args.update:
+        new_args.append('-u')
+    if args.require_override:
+        new_args.append('--require-override')
+        new_args.append(args.require_override)
+    if args.manifests:
+        new_args.append('-m')
+        if args.manifests != "default":
+            new_args.append(args.manifests)
+    if args.manifests_interactive:
+        new_args.append('-mi')
+        if args.manifests_interactive != "default":
+            new_args.append(args.manifests_interactive)
+    if args.verify:
+        new_args.append('-v')
+        if args.verify != "default":
+            new_args.append(args.verify)
+    if args.build:
+        new_args.append('-b')
+        if args.build != "default":
+            new_args.append(args.build)
+
+    if args.remote:
+        new_args.append('-r')
+        new_args.append(args.remote)
+    if args.no_remote:
+        new_args.append('-nr')
+        new_args.append(args.no_remote)
+
+    if args.lockfile:
+        new_args.append('-l')
+        new_args.append(args.lockfile)
+    if args.lockfile_partial:
+        new_args.append('-lockfile-partial')
+        new_args.append(args.lockfile_partial)
+    if args.lockfile_out:
+        new_args.append('-lockfile-out')
+        new_args.append(args.lockfile_out)
+    if args.lockfile_packages:
+        new_args.append('-lockfile-packages')
+        new_args.append(args.lockfile_packages)
+    if args.lockfile_clean:
+        new_args.append('-lockfile-clean')
+        new_args.append(args.lockfile_clean)
+    if args.lockfile_overrides:
+        new_args.append('-lockfile-overrides')
+        new_args.append(args.lockfile_overrides)
+
+    if args.profile:
+        new_args.append('-pr')
+        new_args.append(args.profile)
+    if hasattr(args, 'profile:build') and getattr(args, 'profile:build'):
+        new_args.append('-pr:b')
+        new_args.append(getattr(args, 'profile:build'))
+    if hasattr(args, 'profile:host') and getattr(args, 'profile:host'):
+        new_args.append('-pr:h')
+        new_args.append(getattr(args, 'profile:host'))
+    if hasattr(args, 'profile:all') and getattr(args, 'profile:all'):
+        new_args.append('-pr:a')
+        new_args.append(getattr(args, 'profile:all'))
+
+    if args.settings:
+        for setting in args.settings:
+            new_args.append('-s')
+            new_args.append(setting)
+    if hasattr(args, 'settings:build') and getattr(args, 'settings:build'):
+        for setting in getattr(args, 'settings:build'):
+            new_args.append('-s:b')
+            new_args.append(setting)
+    if hasattr(args, 'settings:host') and getattr(args, 'settings:host'):
+        for setting in getattr(args, 'settings:host'):
+            new_args.append('-s:h')
+            new_args.append(setting)
+    if hasattr(args, 'settings:all') and getattr(args, 'settings:all'):
+        for setting in getattr(args, 'settings:all'):
+            new_args.append('-s:a')
+            new_args.append(setting)
+
+    if hasattr(args, 'options:build') and getattr(args, 'options:build'):
+        for option in getattr(args, 'options:build'):
+            new_args.append('-s:b')
+            new_args.append(option)
+    if hasattr(args, 'options:host') and getattr(args, 'options:host'):
+        for option in getattr(args, 'options:host'):
+            new_args.append('-s:h')
+            new_args.append(option)
+    if hasattr(args, 'options:all') and getattr(args, 'options:all'):
+        for setting in getattr(args, 'options:all'):
+            new_args.append('-s:a')
+            new_args.append(setting)
+
+    if args.conf:
+        new_args.append('-c')
+        new_args.append(args.conf)
+    if hasattr(args, 'conf:build') and getattr(args, 'conf:build'):
+        new_args.append('-c:b')
+        new_args.append(getattr(args, 'conf:build'))
+    if hasattr(args, 'conf:host') and getattr(args, 'conf:host'):
+        new_args.append('-c:h')
+        new_args.append(getattr(args, 'conf:host'))
+    if hasattr(args, 'conf:all') and getattr(args, 'conf:all'):
+        new_args.append('-c:a')
+        new_args.append(getattr(args, 'conf:all'))
+
+    new_args.append(path_or_reference)
+    return new_args
 
 
 def build_create_args(args, tmpdirname, package: ExternalPackage):
@@ -253,103 +433,6 @@ def build_create_args(args, tmpdirname, package: ExternalPackage):
 
     new_args.append(tmpdirname)
     new_args.append(full_package_name)
-    return new_args
-
-
-def build_install_args(args, path_or_reference):
-    new_args = ['install']
-    if args.generator:
-        new_args.append('-g')
-        new_args.append(args.generator)
-    if args.install_folder:
-        new_args.append('-if')
-        new_args.append(args.install_folder)
-    if args.output_folder:
-        new_args.append('-of')
-        new_args.append(args.output_folder)
-    if args.build_require:
-        new_args.append('--build-require')
-    if args.no_imports:
-        new_args.append('--no-imports')
-        new_args.append(args.no_imports)
-    if args.lockfile_node_id:
-        new_args.append('--lockfile-node-id')
-        new_args.append(args.lockfile_node_id)
-    if args.build_require:
-        new_args.append('--build-require')
-    if args.json:
-        new_args.append('-j')
-        new_args.append(args.json)
-    if args.update:
-        new_args.append('-u')
-    if args.require_override:
-        new_args.append('--require-override')
-        new_args.append(args.require_override)
-    if args.manifests:
-        new_args.append('-m')
-        if args.manifests != "default":
-            new_args.append(args.manifests)
-    if args.manifests_interactive:
-        new_args.append('-mi')
-        if args.manifests_interactive != "default":
-            new_args.append(args.manifests_interactive)
-    if args.verify:
-        new_args.append('-v')
-        if args.verify != "default":
-            new_args.append(args.verify)
-    if args.build:
-        new_args.append('-b')
-        if args.build != "default":
-            new_args.append(args.build)
-    if args.remote:
-        new_args.append('-r')
-        new_args.append(args.remote)
-    if args.lockfile:
-        new_args.append('-l')
-        new_args.append(args.lockfile)
-    if args.lockfile_out:
-        new_args.append('-lockfile-out')
-        new_args.append(args.lockfile_out)
-    if args.env:
-        new_args.append('-e')
-        new_args.append(args.env)
-    if hasattr(args, 'env:build') and getattr(args, 'env:build'):
-        new_args.append('-e:b')
-        new_args.append(getattr(args, 'env:build'))
-    if hasattr(args, 'env:host') and getattr(args, 'env:host'):
-        new_args.append('-e:h')
-        new_args.append(getattr(args, 'env:host'))
-    if args.profile:
-        new_args.append('-pr')
-        new_args.append(args.profile)
-    if hasattr(args, 'profile:build') and getattr(args, 'profile:build'):
-        new_args.append('-pr:b')
-        new_args.append(getattr(args, 'profile:build'))
-    if hasattr(args, 'profile:host') and getattr(args, 'profile:host'):
-        new_args.append('-pr:h')
-        new_args.append(getattr(args, 'profile:host'))
-    if args.settings:
-        for setting in args.settings:
-            new_args.append('-s')
-            new_args.append(setting)
-    if hasattr(args, 'settings:build') and getattr(args, 'settings:build'):
-        for setting in getattr(args, 'settings:build'):
-            new_args.append('-s:b')
-            new_args.append(setting)
-    if hasattr(args, 'settings:host') and getattr(args, 'settings:host'):
-        for setting in getattr(args, 'settings:host'):
-            new_args.append('-s:h')
-            new_args.append(setting)
-    if args.conf:
-        new_args.append('-c')
-        new_args.append(args.conf)
-    if hasattr(args, 'conf:build') and getattr(args, 'conf:build'):
-        new_args.append('-c:b')
-        new_args.append(getattr(args, 'conf:build'))
-    if hasattr(args, 'conf:host') and getattr(args, 'conf:host'):
-        new_args.append('-c:h')
-        new_args.append(getattr(args, 'conf:host'))
-    new_args.append(path_or_reference)
     return new_args
 
 
