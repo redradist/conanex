@@ -143,7 +143,6 @@ def parse_install_args():
     install_parser.add_argument('--tool-requires', type=str, action='append', nargs='+', help='TOOL_REQUIRES')
     install_parser.add_argument('--deployer-folder', type=str, help='DEPLOYER_FOLDER')
     install_parser.add_argument('-f', '--format', type=str, help='FORMAT')
-    install_parser.add_argument('-h', '--help', action='store_true')
     install_parser.add_argument('--name', type=str, help='NAME')
     install_parser.add_argument('--version', type=str, help='VERSION')
     install_parser.add_argument('--user', type=str, help='USER')
@@ -195,8 +194,6 @@ def build_install_args(args, path_or_reference):
     if args.output_folder:
         new_args.append('-of')
         new_args.append(args.output_folder)
-    if args.help:
-        new_args.append('-h')
     if args.format:
         new_args.append('-f')
         new_args.append(args.format)
@@ -221,10 +218,6 @@ def build_install_args(args, path_or_reference):
         new_args.append('--deployer')
         new_args.append(args.deployer)
 
-    if args.channel:
-        new_args.append('--channel')
-        new_args.append(args.channel)
-
     if hasattr(args, 'requires') and getattr(args, 'requires'):
         for require in getattr(args, 'requires'):
             new_args.append('-r')
@@ -239,8 +232,6 @@ def build_install_args(args, path_or_reference):
     if args.no_imports:
         new_args.append('--no-imports')
         new_args.append(args.no_imports)
-    if args.build_require:
-        new_args.append('--build-require')
     if args.json:
         new_args.append('-j')
         new_args.append(args.json)
@@ -353,23 +344,29 @@ def build_install_args(args, path_or_reference):
 
 
 def build_create_args(args, tmpdirname, package: ExternalPackage):
-    full_package_name = package.full_package_name
     new_args = ['create']
+
+    if args.format:
+        new_args.append('-f')
+        new_args.append(args.format)
+
+    if package.name:
+        new_args.append('--name')
+        new_args.append(package.name)
+    if package.version:
+        new_args.append('--version')
+        new_args.append(package.version)
+    if package.user:
+        new_args.append('--user')
+        new_args.append(package.user)
+    if package.channel:
+        new_args.append('--channel')
+        new_args.append(package.channel)
+
     if args.build_require:
         new_args.append('--build-require')
     if args.update:
         new_args.append('-u')
-    if args.require_override:
-        new_args.append('--require-override')
-        new_args.append(args.require_override)
-    if args.manifests:
-        new_args.append('-m')
-        if args.verify != "manifests":
-            new_args.append(args.manifests)
-    if args.manifests_interactive:
-        new_args.append('-mi')
-        if args.verify != "manifests_interactive":
-            new_args.append(args.manifests_interactive)
     if args.verify:
         new_args.append('-v')
         if args.verify != "default":
@@ -378,24 +375,33 @@ def build_create_args(args, tmpdirname, package: ExternalPackage):
         new_args.append('-b')
         if args.build != "default":
             new_args.append(args.build)
+
     if args.remote:
         new_args.append('-r')
         new_args.append(args.remote)
+    if args.no_remote:
+        new_args.append('-nr')
+        new_args.append(args.no_remote)
+
     if args.lockfile:
         new_args.append('-l')
         new_args.append(args.lockfile)
+    if args.lockfile_partial:
+        new_args.append('-lockfile-partial')
+        new_args.append(args.lockfile_partial)
     if args.lockfile_out:
         new_args.append('-lockfile-out')
         new_args.append(args.lockfile_out)
-    if args.env:
-        new_args.append('-e')
-        new_args.append(args.env)
-    if hasattr(args, 'env:build') and getattr(args, 'env:build'):
-        new_args.append('-e:b')
-        new_args.append(getattr(args, 'env:build'))
-    if hasattr(args, 'env:host') and getattr(args, 'env:host'):
-        new_args.append('-e:h')
-        new_args.append(getattr(args, 'env:host'))
+    if args.lockfile_packages:
+        new_args.append('-lockfile-packages')
+        new_args.append(args.lockfile_packages)
+    if args.lockfile_clean:
+        new_args.append('-lockfile-clean')
+        new_args.append(args.lockfile_clean)
+    if args.lockfile_overrides:
+        new_args.append('-lockfile-overrides')
+        new_args.append(args.lockfile_overrides)
+
     if args.profile:
         new_args.append('-pr')
         new_args.append(args.profile)
@@ -405,6 +411,10 @@ def build_create_args(args, tmpdirname, package: ExternalPackage):
     if hasattr(args, 'profile:host') and getattr(args, 'profile:host'):
         new_args.append('-pr:h')
         new_args.append(getattr(args, 'profile:host'))
+    if hasattr(args, 'profile:all') and getattr(args, 'profile:all'):
+        new_args.append('-pr:a')
+        new_args.append(getattr(args, 'profile:all'))
+
     if args.settings:
         for setting in args.settings:
             new_args.append('-s')
@@ -417,6 +427,24 @@ def build_create_args(args, tmpdirname, package: ExternalPackage):
         for setting in getattr(args, 'settings:host'):
             new_args.append('-s:h')
             new_args.append(setting)
+    if hasattr(args, 'settings:all') and getattr(args, 'settings:all'):
+        for setting in getattr(args, 'settings:all'):
+            new_args.append('-s:a')
+            new_args.append(setting)
+
+    if hasattr(args, 'options:build') and getattr(args, 'options:build'):
+        for option in getattr(args, 'options:build'):
+            new_args.append('-s:b')
+            new_args.append(option)
+    if hasattr(args, 'options:host') and getattr(args, 'options:host'):
+        for option in getattr(args, 'options:host'):
+            new_args.append('-s:h')
+            new_args.append(option)
+    if hasattr(args, 'options:all') and getattr(args, 'options:all'):
+        for setting in getattr(args, 'options:all'):
+            new_args.append('-s:a')
+            new_args.append(setting)
+
     if args.conf:
         new_args.append('-c')
         new_args.append(args.conf)
@@ -426,13 +454,11 @@ def build_create_args(args, tmpdirname, package: ExternalPackage):
     if hasattr(args, 'conf:host') and getattr(args, 'conf:host'):
         new_args.append('-c:h')
         new_args.append(getattr(args, 'conf:host'))
-
-    for option in package.options:
-        new_args.append('-o')
-        new_args.append(option)
+    if hasattr(args, 'conf:all') and getattr(args, 'conf:all'):
+        new_args.append('-c:a')
+        new_args.append(getattr(args, 'conf:all'))
 
     new_args.append(tmpdirname)
-    new_args.append(full_package_name)
     return new_args
 
 
@@ -446,11 +472,11 @@ def run_git_clone_command(tag, tmpdirname, url):
 
 def run_command(command):
     print(' '.join(command))
-    process = Popen(command, shell=True, env=nenv)
+    process = Popen(command, stdout=PIPE, env=nenv)
     process.communicate()
     exit_code = process.wait()
     if exit_code != 0:
-        raise Exception("Failed command\n{}".format(' '.join(command)))
+        raise Exception(f"Failed command\n{' '.join(command)}")
 
 
 def run_conan_create_command(args, package: ExternalPackage, tmpdirname):
@@ -467,7 +493,7 @@ def run_conan_install_command(args, path_or_reference):
 
 
 def run_conan_remove_command(path_or_reference):
-    conan_remove_command = [sys.executable, "-m", "conans.conan", "remove", "--force", path_or_reference]
+    conan_remove_command = [sys.executable, "-m", "conans.conan", "remove", "--confirm", path_or_reference]
     run_command(conan_remove_command)
 
 
@@ -510,8 +536,9 @@ def verify_hash_code(file: str | BytesIO, package: ExternalPackage):
 
 def is_package_in_cache(package: ExternalPackage):
     conan_command = [sys.executable, "-m", "conans.conan", "search", package.package_name]
-    with Popen(conan_command, shell=True, stdout=PIPE, env=nenv) as proc:
-        search_results = str(proc.stdout.read())
+    with Popen(conan_command, stdout=PIPE, env=nenv) as proc:
+        search_results, _ = proc.communicate(timeout=15)
+        search_results = str(search_results)
         return "Existing package recipes:" in search_results
 
 
@@ -722,7 +749,7 @@ def regenerate_conanfile(args, command):
         run_command(conan_command)
     else:
         with tempfile.TemporaryDirectory() as tmpdirname:
-            orig_conanfile_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
+            orig_conanfile_path = args.path_or_reference
             new_conanfile_path = os.path.join(tmpdirname, "conanfile.txt")
             generate_new_conanfile(args, orig_conanfile_path, new_conanfile_path)
             command_index = sys.argv.index(command)
@@ -734,7 +761,7 @@ def regenerate_conanfile(args, command):
 
 
 def install_external_packages(args, requires: List[ExternalPackage]):
-    orig_conanfile_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
+    orig_conanfile_path = args.path_or_reference
     for package in requires:
         if package.protocol in ['git', 'zip', 'path', 'conan', 'remote']:
             if is_package_in_cache(package):
@@ -775,8 +802,13 @@ def run():
         args = parse_install_args()
         with tempfile.TemporaryDirectory() as tmpdirname:
             new_conanfile_path = os.path.join(tmpdirname, "conanfile.txt")
-            orig_conanfile_path = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
-            requires = generate_new_conanfile(args, orig_conanfile_path, new_conanfile_path)
+            if os.path.isdir(args.path_or_reference):
+                args.path_or_reference = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
+            elif os.path.isfile(args.path_or_reference):
+                args.path_or_reference = args.path_or_reference
+            else:
+                raise Exception("path_or_reference should be either directory or file")
+            requires = generate_new_conanfile(args, args.path_or_reference, new_conanfile_path)
             install_external_packages(args, requires)
             run_conan_install_command(args, new_conanfile_path)
 
