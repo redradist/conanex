@@ -35,6 +35,21 @@ option = r"\s*(?P<name>.*?)\s*:\s*(?P<option>.*?)\s*=\s*(?P<value>.*)"
 option_re = re.compile(option)
 
 
+class ConanArgs:
+    def __init__(self, args):
+        self.__dict__['_args'] = args
+
+    def __copy__(self):
+        return ConanArgs(self.__dict__['_args'])
+
+    def __getattr__(self, name):
+        if name == '_args':
+            return self.__dict__['_args']
+        if hasattr(self._args, name):
+            return getattr(self._args, name)
+        return False
+
+
 class ConanFileSection(Enum):
     No = 0
     Requires = 1
@@ -182,7 +197,7 @@ def parse_install_args():
     return parser.parse_args()
 
 
-def build_install_args(args, path_or_reference):
+def build_install_args(args, path_or_reference: ExternalPackage | str):
     new_args = ['install']
 
     if args.generator:
@@ -237,9 +252,6 @@ def build_install_args(args, path_or_reference):
         new_args.append(args.json)
     if args.update:
         new_args.append('-u')
-    if args.require_override:
-        new_args.append('--require-override')
-        new_args.append(args.require_override)
     if args.manifests:
         new_args.append('-m')
         if args.manifests != "default":
@@ -339,7 +351,10 @@ def build_install_args(args, path_or_reference):
         new_args.append('-c:a')
         new_args.append(getattr(args, 'conf:all'))
 
-    new_args.append(path_or_reference)
+    if isinstance(path_or_reference, ExternalPackage):
+        new_args.append(f'--requires={path_or_reference.full_package_name}')
+    else:
+        new_args.append(path_or_reference)
     return new_args
 
 
@@ -625,9 +640,9 @@ def install_package_from_conanfile(args, package: ExternalPackage):
 
 
 def install_package_from_remote(args, package: ExternalPackage):
-    updated_args = copy.copy(args)
-    updated_args.remote = package.url
-    run_conan_install_command(updated_args, package.full_package_name)
+    install_args = copy.copy(args)
+    install_args.remote = package.url
+    run_conan_install_command(install_args, package)
 
 
 def is_command_to_modify():
@@ -800,6 +815,7 @@ def run():
         regenerate_conanfile(args, 'info')
     elif 'install' in sys.argv:
         args = parse_install_args()
+        args = ConanArgs(args)
         with tempfile.TemporaryDirectory() as tmpdirname:
             new_conanfile_path = os.path.join(tmpdirname, "conanfile.txt")
             if os.path.isdir(args.path_or_reference):
