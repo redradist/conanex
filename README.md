@@ -47,8 +47,8 @@ ctre/3.6 { remote = "conancenter" }
 # CTRE/3.6 { path = "../../../../compile-time-regular-expressions" }
 
 [options]
-flatbuffers:shared=True
-poco:shared=True
+flatbuffers/*:shared=True
+poco/*:shared=True
 ```
 As you can see in this file we have 5 additional ways to install package
 
