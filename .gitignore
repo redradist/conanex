@@ -6,3 +6,6 @@ conan.lock
 conanbuildinfo.txt
 conaninfo.txt
 graph_info.json
+conan*.sh
+conan*.bat
+conan*.ps1
