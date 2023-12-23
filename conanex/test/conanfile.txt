@@ -1,9 +1,11 @@
 [requires]
-poco/1.12.4
-flatbuffers/22.10.26 {
-    zip = 'https://github.com/google/flatbuffers/archive/refs/tags/v22.10.26.zip',
-    sha256 = 'B97C7C017B05F20B17939FEBD413C75201F5B704C8DE49ADB0B35A70D50478CD'
+zlib/1.3 { # Comment
+    path = '/Users/redradist/Projects/conan-center-index/recipes/zlib/all'
 }
+#flatbuffers/22.10.26 {
+#    zip = 'https://github.com/google/flatbuffers/archive/refs/tags/v22.10.26.zip',
+#    sha256 = 'B97C7C017B05F20B17939FEBD413C75201F5B704C8DE49ADB0B35A70D50478CD'
+#}
 ctre/3.6 { remote = "conancenter" }
 # Examples:
 # flatbuffers/2.0.0 {

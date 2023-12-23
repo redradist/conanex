@@ -25,7 +25,7 @@ for path in paths:
         npaths.append(path)
 nenv["PATH"] = os.pathsep.join(npaths)
 
-detect_external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*\{"
+detect_external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d\w]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*\{"
 detect_external_package_re = re.compile(detect_external_package)
 external_package_property = r"^\s*(?P<property>.+?)\s*=\s*(?P<value>.+?)\s*$"
 external_package_property_re = re.compile(external_package_property)
@@ -164,6 +164,7 @@ def parse_install_args():
     install_parser.add_argument('--channel', type=str, help='CHANNEL')
     install_parser.add_argument('--no-imports', action='store_true')
     install_parser.add_argument('--build-require', action='store_true')
+    install_parser.add_argument('--packages', type=str, action='append', nargs='+', help='OPTIONS_BUILD')
     install_parser.add_argument('-j', '--json', type=str, help='JSON')
     install_parser.add_argument('-d', '--deployer', type=str, help='DEPLOYER')
     install_parser.add_argument('-b', '--build', type=str, nargs='?', const='default', help='BUILD')
@@ -241,6 +242,10 @@ def build_install_args(args, path_or_reference: ExternalPackage | str):
         for require in getattr(args, 'tool-requires'):
             new_args.append('--tool-requires')
             new_args.append(require)
+
+    if args.packages:
+        for package in getattr(args, 'packages'):
+            new_args.append(f'--requires={package}')
 
     if args.build_require:
         new_args.append('--build-require')
@@ -660,6 +665,13 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
             context = ConanFileSection.No
             external_package_lines = []
             for line in f.readlines():
+                line = line.strip()
+                if "#" in line:
+                    line = line[:line.find("#")]
+                if len(line) == 0:
+                    continue
+                line = f"{line}\n"
+
                 if "[requires]" in line:
                     context = ConanFileSection.Requires
                 elif "[tool_requires]" in line:
@@ -670,9 +682,6 @@ def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
                     context = ConanFileSection.No
 
                 if context == ConanFileSection.No:
-                    new_file_lines.append(str(line))
-                    continue
-                if line.strip().startswith("#"):
                     new_file_lines.append(str(line))
                     continue
 
@@ -793,7 +802,10 @@ def install_external_packages(args, requires: List[ExternalPackage]):
                 elif package.protocol == 'path':
                     conanfile_path = os.path.dirname(orig_conanfile_path)
                     conanfile_posix_path = Path(conanfile_path).as_posix()
-                    path = str(Path("{}/{}".format(conanfile_posix_path, package.url)))
+                    if not Path(package.url).is_absolute():
+                        path = str(Path("{}/{}".format(conanfile_posix_path, package.url)))
+                    else:
+                        path = package.url
                     install_package_from_path(args, package, path)
                 elif package.protocol == 'conan':
                     install_package_from_conanfile(args, package)
@@ -826,6 +838,9 @@ def run():
                 raise Exception("path_or_reference should be either directory or file")
             requires = generate_new_conanfile(args, args.path_or_reference, new_conanfile_path)
             install_external_packages(args, requires)
+            with open(new_conanfile_path, 'r') as f:
+                for line in f.readlines():
+                    print(f"{line}\n")
             run_conan_install_command(args, new_conanfile_path)
 
 
