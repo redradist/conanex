@@ -43,7 +43,7 @@ def generate_long_description_file():
 
 
 here = path.abspath(path.dirname(__file__))
-project_requirements = get_requires("conanex/requirements.txt")
+project_requirements = get_requires("src/conanex/requirements.txt")
 # The test utils are used by conan-package-tools
 exclude_test_packages = ["cmake"]
 

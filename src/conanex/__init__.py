@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 from conan import ConanFile
-from conanex.main import install_package_from_git, install_package_from_zip, install_package_from_path, \
+from src.conanex.main import install_package_from_git, install_package_from_zip, install_package_from_path, \
     install_package_from_conanfile, install_package_from_remote, ExternalPackage
 
 
