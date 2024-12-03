@@ -657,12 +657,12 @@ def is_command_to_modify():
            'info' in sys.argv
 
 
-def generate_new_conanfile(args, orig_conanfile_path, new_conanfile):
-    if os.path.exists(orig_conanfile_path):
+def generate_new_conanfile(args, origin_conanfile_path, new_conanfile):
+    if os.path.exists(origin_conanfile_path):
         requires: List[ExternalPackage] = []
         options: Dict[str, str] = {}
 
-        with open(orig_conanfile_path) as f:
+        with open(origin_conanfile_path) as f:
             new_file_lines = []
             context = ConanFileSection.No
             external_package_lines = []
@@ -775,9 +775,9 @@ def regenerate_conanfile(args, command):
         run_command(conan_command)
     else:
         with tempfile.TemporaryDirectory() as tmpdirname:
-            orig_conanfile_path = args.path_or_reference
+            origin_conanfile_path = args.path_or_reference
             new_conanfile_path = os.path.join(tmpdirname, "conanfile.txt")
-            generate_new_conanfile(args, orig_conanfile_path, new_conanfile_path)
+            generate_new_conanfile(args, origin_conanfile_path, new_conanfile_path)
             command_index = sys.argv.index(command)
             command_arg = copy.copy(sys.argv)[command_index:]
             path_or_reference_index = command_arg.index(args.path_or_reference)
@@ -787,7 +787,7 @@ def regenerate_conanfile(args, command):
 
 
 def install_external_packages(args, requires: List[ExternalPackage]):
-    orig_conanfile_path = args.path_or_reference
+    origin_conanfile_path = args.path_or_reference
     for package in requires:
         if package.protocol in ['git', 'zip', 'path', 'conan', 'remote']:
             if is_package_in_cache(package):
@@ -802,7 +802,7 @@ def install_external_packages(args, requires: List[ExternalPackage]):
                 elif package.protocol == 'zip':
                     install_package_from_zip(args, package)
                 elif package.protocol == 'path':
-                    conanfile_path = os.path.dirname(orig_conanfile_path)
+                    conanfile_path = os.path.dirname(origin_conanfile_path)
                     conanfile_posix_path = Path(conanfile_path).as_posix()
                     if not Path(package.url).is_absolute():
                         path = str(Path("{}/{}".format(conanfile_posix_path, package.url)))
