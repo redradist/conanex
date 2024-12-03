@@ -1,0 +1,19 @@
+[requires]
+zlib/1.3 { # Comment
+    path = '/Users/redradist/Projects/conan-center-index/recipes/zlib/all'
+}
+hackrf/v2024.02.1 {
+    conan = "/Users/redradist/Projects/MagicSDR/conan/hackrf/conanfile.py"
+}
+ctre/3.6 { remote = "conancenter" }
+
+[options]
+flatbuffers/*:shared=True
+poco/*:shared=True
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[layout]
+cmake_layout
