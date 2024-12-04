@@ -3,13 +3,14 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import tarfile
 import tempfile
 import sys
 
 from io import BytesIO
 from pathlib import Path
-from subprocess import Popen, PIPE, DEVNULL
+from subprocess import Popen, STDOUT, PIPE, DEVNULL
 from typing import List, Dict
 from urllib.parse import urlparse
 from urllib.request import urlopen
@@ -45,16 +46,17 @@ def run_git_clone_command(tag, tmpdirname, url):
 
 
 def run_command(command: List[str]):
-    print(' '.join(command))
-    process = Popen(command, stdout=PIPE, env=nenv)
-    process.communicate()
-    exit_code = process.wait()
+    with Popen(command, stdout=PIPE, stderr=PIPE, env=nenv) as proc:
+        stdout, stderr = proc.communicate()
+        stdout = str(stdout, encoding='utf-8', errors='replace')
+        stderr = str(stderr, encoding='utf-8', errors='replace')
+    exit_code = proc.returncode
+    print(stdout)
     if exit_code != 0:
-        raise Exception(f"Failed command\n{' '.join(command)}")
+        raise Exception(f"Failed command\n{' '.join(command)}:\n{stderr}")
 
 
 def run_conan_create_command(args, package: ExternalPackage, tmpdirname):
-    print("\nBuilding {} from sources:".format(package.full_package_name))
     create_args = build_create_args(args, tmpdirname, package)
     conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
     run_command(conan_create_command)
@@ -110,9 +112,9 @@ def verify_hash_code(file: str | BytesIO, package: ExternalPackage):
 
 def is_package_in_cache(package: ExternalPackage):
     conan_command = [sys.executable, "-m", "conans.conan", "search", package.package_name]
-    with Popen(conan_command, stdout=PIPE, env=nenv) as proc:
+    with Popen(conan_command, stdout=PIPE, stderr=PIPE, env=nenv) as proc:
         search_results, _ = proc.communicate(timeout=15)
-        search_results = str(search_results)
+        search_results = str(search_results, encoding='utf-8')
         return "Existing package recipes:" in search_results
 
 
@@ -260,18 +262,17 @@ def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str)
                             continue
                         ext_protocol = external_package_property_match.group('property')
                         ext_value = external_package_property_match.group('value')
-                        print(f"ext_value = {ext_value}")
-                        char_back = ''
-                        if '"' in ext_value:
-                            char_back = '"'
-                            ext_value = ext_value.strip('"')
-                        if "'" in ext_value:
-                            char_back = "'"
-                            ext_value = ext_value.strip("'")
-                        if not os.path.isabs(ext_value):
-                            ext_value = os.path.join(os.path.dirname(origin_conanfile_path), ext_value)
-                        ext_value = f"{char_back}{ext_value}{char_back}"
-                        print(f"new ext_value = {ext_value}")
+                        if ext_protocol == 'conan':
+                            char_back = ''
+                            if '"' in ext_value:
+                                char_back = '"'
+                                ext_value = ext_value.strip('"')
+                            if "'" in ext_value:
+                                char_back = "'"
+                                ext_value = ext_value.strip("'")
+                            if not os.path.isabs(ext_value):
+                                ext_value = os.path.join(os.path.dirname(origin_conanfile_path), ext_value)
+                            ext_value = f"{char_back}{ext_value}{char_back}"
                         properties[ext_protocol] = ext_value
 
                     external_package_lines = []
@@ -389,6 +390,7 @@ def run():
         conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
         with Popen(conan_command, env=nenv) as proc:
             pass
+        return
 
     if 'info' in sys.argv:
         args = parse_info_args()
@@ -406,9 +408,6 @@ def run():
                 raise Exception("path_or_reference should be either directory or file")
             requires = generate_new_conanfile(args, args.path_or_reference, new_conanfile_path)
             install_external_packages(args, requires)
-            with open(new_conanfile_path, 'r') as f:
-                for line in f.readlines():
-                    print(f"{line}\n")
             run_conan_install_command(args, new_conanfile_path)
 
 
