@@ -2,6 +2,7 @@
 *.egg-info/
 dist/
 build/
+__pycache__/
 conan.lock
 conanbuildinfo.txt
 conaninfo.txt
