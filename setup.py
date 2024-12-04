@@ -28,7 +28,7 @@ def get_requires(filename):
 def load_version():
     """ Loads a file content """
     filename = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                            "conanex", "__init__.py"))
+                                            "src", "conanex", "__init__.py"))
     with open(filename, "rt") as version_file:
         conan_init = version_file.read()
         version = re.search(r"__version__ = '([0-9a-z.-]+)'", conan_init).group(1)
@@ -80,16 +80,21 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11'
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13'
     ],
 
     # What does your project relate to?
     keywords=['C/C++', 'package', 'libraries', 'developer', 'manager',
               'dependency', 'tool', 'c', 'c++', 'cpp'],
 
+    # Specify the root directory for packages
+    package_dir={'': 'src'},
+
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=find_packages(exclude=exclude_test_packages),
+    packages=find_packages(where='./src/', exclude=exclude_test_packages),
 
     # Alternatively, if you want to distribute just a my_module.py, uncomment
     # this:
@@ -105,7 +110,7 @@ setup(
     # installed, specify them here.  If using Python 2.6 or less, then these
     # have to be included in MANIFEST.in as well.
     package_data={
-        'conanex': ['*.txt'],
+        'src/conanex': ['*.txt'],
     },
 
     # Although 'package_data' is the preferred approach, in some case you may
