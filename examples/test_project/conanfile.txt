@@ -1,11 +1,11 @@
 [requires]
 zlib/1.3 { # Comment
-    path = '/Users/redradist/Projects/conan-center-index/recipes/zlib/all'
+    path = '../local-conan-center-index/recipes/zlib/all'
 }
 hackrf/v2024.02.1 {
-    conan = "/Users/redradist/Projects/MagicSDR/conan/hackrf/conanfile.py"
+    conan = "./hackrf/conanfile.py"
 }
-ctre/3.6 { remote = "conancenter" }
+ctre/3.9.0 { remote = "conancenter" }
 
 [options]
 flatbuffers/*:shared=True
