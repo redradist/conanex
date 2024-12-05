@@ -25,14 +25,7 @@ class HackRFRecipe(ConanFile):
     default_options = {"shared": False, "fPIC": True}
 
     def source(self):
-        # Please, be aware that using the head of the branch instead of an immutable tag
-        # or commit is a bad practice and not allowed by Conan
-
-        # build_type = self.settings.get_safe("build_type", "default")  # Get the build type (e.g., Debug, Release)
-        # target_dir = os.path.join(self.source_folder, f"hackrf_{build_type}")  # Unique directory per build type
-        #
-        # # Ensure the target directory exists
-        # os.makedirs(target_dir, exist_ok=True)
+        os.makedirs(self.source_folder, exist_ok=True)
 
         git = Git(self)
         self.output.info(f"Start cloning hackrf ...")
@@ -49,21 +42,26 @@ class HackRFRecipe(ConanFile):
 
     def layout(self):
         cmake_layout(self)
+        self.folders.set_base_package(f"packages/{self.settings.build_type}")
 
     def generate(self):
-        self.output.info(f"Start generate ...")
         deps = CMakeDeps(self)
-        deps.generate()
         tc = CMakeToolchain(self)
+        self.output.info(f"Start generate ...")
+        deps.generate()
         tc.generate()
 
     def build(self):
-        self.output.info(f"Start build ...")
+        os.makedirs(self.build_folder, exist_ok=True)
+
         cmake = CMake(self)
+        self.output.info(f"Start build ...")
         cmake.configure(build_script_folder=f"./host")
         cmake.build()
 
     def package(self):
+        os.makedirs(self.package_folder, exist_ok=True)
+
         cmake = CMake(self)
         cmake.install()
 
