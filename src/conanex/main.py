@@ -111,11 +111,11 @@ def verify_hash_code(file: str | BytesIO, package: ExternalPackage):
 
 
 def is_package_in_cache(package: ExternalPackage):
-    conan_command = [sys.executable, "-m", "conans.conan", "search", package.package_name]
+    conan_command = [sys.executable, "-m", "conans.conan", "cache", "path", package.package_name]
     with Popen(conan_command, stdout=PIPE, stderr=PIPE, env=nenv) as proc:
         search_results, _ = proc.communicate(timeout=15)
         search_results = str(search_results, encoding='utf-8')
-        return "Existing package recipes:" in search_results
+        return "ERROR: Recipe" not in search_results
 
 
 def uri_validator(url):
@@ -358,7 +358,6 @@ def install_external_packages(args, requires: List[ExternalPackage]):
     for package in requires:
         if package.protocol in ['git', 'zip', 'path', 'conan', 'remote']:
             if is_package_in_cache(package):
-                print("{} was found in cache".format(package.full_package_name))
                 continue
             if package.protocol not in ['zip', 'conan'] and package.package_hash_algo:
                 raise Exception("hash[{}] allowed only for zip and conan protocols"
