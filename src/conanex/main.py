@@ -113,9 +113,9 @@ def verify_hash_code(file: str | BytesIO, package: ExternalPackage):
 def is_package_in_cache(package: ExternalPackage):
     conan_command = [sys.executable, "-m", "conans.conan", "cache", "path", package.package_name]
     with Popen(conan_command, stdout=PIPE, stderr=PIPE, env=nenv) as proc:
-        search_results, _ = proc.communicate(timeout=15)
-        search_results = str(search_results, encoding='utf-8')
-        return "ERROR: Recipe" not in search_results
+        _, search_errors = proc.communicate(timeout=15)
+        search_errors = str(search_errors, encoding='utf-8')
+        return "ERROR: Recipe" not in search_errors
 
 
 def uri_validator(url):
