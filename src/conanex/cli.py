@@ -108,10 +108,6 @@ def parse_install_args():
 def build_create_args(args, tmpdirname, package: ExternalPackage):
     new_args = ['create']
 
-    if args.format:
-        new_args.append('-f')
-        new_args.append(args.format)
-
     if package.name:
         new_args.append('--name')
         new_args.append(package.name)
