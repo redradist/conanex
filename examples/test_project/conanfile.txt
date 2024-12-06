@@ -5,6 +5,9 @@ zlib/1.3 { # Comment
 hackrf/v2024.02.1 {
     conan = "./hackrf/conanfile.py"
 }
+rtlsdr/v0.9.0 {
+    conan = "./conan/rtlsdr/conanfile.py"
+}
 ctre/3.9.0 { remote = "conancenter" }
 
 [options]
