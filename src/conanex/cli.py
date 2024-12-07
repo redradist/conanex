@@ -1,6 +1,21 @@
 import argparse
+import copy
+import os
+import sys
+from subprocess import Popen, PIPE
+from typing import List, Optional
 
 from .types import ExternalPackage
+import filelock
+
+
+nenv = copy.copy(os.environ)
+paths = nenv["PATH"].split(os.pathsep)
+npaths = []
+for path in paths:
+    if path not in npaths:
+        npaths.append(path)
+nenv["PATH"] = os.pathsep.join(npaths)
 
 
 def parse_inspect_args():
@@ -383,3 +398,40 @@ def build_install_args(args, path_or_reference: ExternalPackage | str):
     else:
         new_args.append(path_or_reference)
     return new_args
+
+
+def run_command(command: List[str], ignore_output=False):
+    with Popen(command, stdout=PIPE, stderr=PIPE, env=nenv) as proc:
+        stdout, stderr = proc.communicate()
+        stdout = str(stdout, encoding='utf-8', errors='replace')
+        stderr = str(stderr, encoding='utf-8', errors='replace')
+    exit_code = proc.returncode
+    if not ignore_output:
+        print(stdout)
+    if exit_code != 0:
+        raise Exception(f"Failed command\n{' '.join(command)}:\n{stderr}")
+
+
+def run_git_clone_command(tag: Optional[str], temp_dir, url):
+    if tag:
+        git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, temp_dir]
+    else:
+        git_clone_command = ["git", "clone", "--recursive", url, temp_dir]
+    run_command(git_clone_command)
+
+
+def run_conan_create_command(args, package: ExternalPackage, temp_dir):
+    create_args = build_create_args(args, temp_dir, package)
+    conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
+    run_command(conan_create_command)
+
+
+def run_conan_install_command(args, path_or_reference):
+    install_args = build_install_args(args, path_or_reference)
+    conan_install_command = [sys.executable, "-m", "conans.conan", *install_args]
+    run_command(conan_install_command)
+
+
+def run_conan_remove_command(path_or_reference):
+    conan_remove_command = [sys.executable, "-m", "conans.conan", "remove", "--confirm", path_or_reference]
+    run_command(conan_remove_command)
