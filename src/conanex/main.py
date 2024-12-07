@@ -11,7 +11,7 @@ import sys
 from io import BytesIO
 from pathlib import Path
 from subprocess import Popen, STDOUT, PIPE, DEVNULL
-from typing import List, Dict
+from typing import List, Dict, Optional
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from zipfile import ZipFile
@@ -37,27 +37,28 @@ option = r"\s*(?P<name>.*?)\s*:\s*(?P<option>.*?)\s*=\s*(?P<value>.*)"
 option_re = re.compile(option)
 
 
-def run_git_clone_command(tag, tmpdirname, url):
+def run_git_clone_command(tag: Optional[str], temp_dir, url):
     if tag:
-        git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, tmpdirname]
+        git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, temp_dir]
     else:
-        git_clone_command = ["git", "clone", "--recursive", url, tmpdirname]
+        git_clone_command = ["git", "clone", "--recursive", url, temp_dir]
     run_command(git_clone_command)
 
 
-def run_command(command: List[str]):
+def run_command(command: List[str], ignore_output=False):
     with Popen(command, stdout=PIPE, stderr=PIPE, env=nenv) as proc:
         stdout, stderr = proc.communicate()
         stdout = str(stdout, encoding='utf-8', errors='replace')
         stderr = str(stderr, encoding='utf-8', errors='replace')
     exit_code = proc.returncode
-    print(stdout)
+    if not ignore_output:
+        print(stdout)
     if exit_code != 0:
         raise Exception(f"Failed command\n{' '.join(command)}:\n{stderr}")
 
 
-def run_conan_create_command(args, package: ExternalPackage, tmpdirname):
-    create_args = build_create_args(args, tmpdirname, package)
+def run_conan_create_command(args, package: ExternalPackage, temp_dir):
+    create_args = build_create_args(args, temp_dir, package)
     conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
     run_command(conan_create_command)
 
@@ -126,54 +127,54 @@ def uri_validator(url):
         return False
 
 
-def extract_from_zip(tmpdirname, url, package: ExternalPackage):
+def extract_from_zip(temp_dir, url, package: ExternalPackage):
     if uri_validator(url):
         print("wget {}".format(url))
         resp = urlopen(url)
         bytes_io = BytesIO(resp.read())
         verify_hash_code(bytes_io, package)
         with ZipFile(bytes_io) as zipfile:
-            zipfile.extractall(tmpdirname)
+            zipfile.extractall(temp_dir)
     else:
         verify_hash_code(url, package)
         with ZipFile(url, 'r') as zipfile:
-            zipfile.extractall(tmpdirname)
+            zipfile.extractall(temp_dir)
 
 
-def extract_from_tar(tmpdirname, url, archive, package: ExternalPackage):
+def extract_from_tar(temp_dir, url, archive, package: ExternalPackage):
     if uri_validator(url):
         print("wget {}".format(url))
         resp = urlopen(url)
         bytes_io = BytesIO(resp.read())
         verify_hash_code(bytes_io, package)
         with tarfile.open(fileobj=bytes_io, mode="r:{}".format(archive)) as tar:
-            tar.extractall(tmpdirname)
+            tar.extractall(temp_dir)
     else:
         verify_hash_code(url, package)
         with tarfile.open(name=url, mode=f'r:{archive}') as tar:
-            tar.extractall(tmpdirname)
+            tar.extractall(temp_dir)
 
 
 def install_package_from_git(args, package: ExternalPackage):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        run_git_clone_command(package.attrs["tag"], tmpdirname, package.url)
-        run_conan_create_command(args, package, tmpdirname)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        run_git_clone_command(package.attrs["tag"], temp_dir, package.url)
+        run_conan_create_command(args, package, temp_dir)
 
 
 def install_package_from_zip(args, package: ExternalPackage):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as temp_dir:
         filename, file_ext = os.path.splitext(package.url)
         file_ext = file_ext[1:]
         if file_ext == 'zip':
-            extract_from_zip(tmpdirname, package.url, package)
+            extract_from_zip(temp_dir, package.url, package)
         elif os.path.splitext(filename)[1][1:] == 'tar':
-            extract_from_tar(tmpdirname, package.url, file_ext, package)
+            extract_from_tar(temp_dir, package.url, file_ext, package)
 
-        subfolders = [f.path for f in os.scandir(tmpdirname) if f.is_dir()]
+        subfolders = [f.path for f in os.scandir(temp_dir) if f.is_dir()]
         if len(subfolders) == 1:
             src_package_dir = subfolders[0]
         else:
-            src_package_dir = tmpdirname
+            src_package_dir = temp_dir
 
         run_conan_create_command(args, package, src_package_dir)
 
@@ -185,19 +186,19 @@ def install_package_from_path(args, package: ExternalPackage, path: str):
 def install_package_from_conanfile(args, package: ExternalPackage):
     if not package.url.endswith("conanfile.py"):
         raise Exception("Url [{}] should contain conanfile.py".format(package.url))
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as temp_dir:
         if uri_validator(package.url):
             print("wget {}".format(package.url))
             resp = urlopen(package.url)
-            new_conanfile_path = os.path.join(tmpdirname, "conanfile.py")
+            new_conanfile_path = os.path.join(temp_dir, "conanfile.py")
             bytes_io = BytesIO(resp.read())
             with open(new_conanfile_path, "wb") as f:
                 f.write(bytes_io.getbuffer())
             verify_hash_code(new_conanfile_path, package)
         else:
-            shutil.copy2(package.url, tmpdirname)
+            shutil.copy2(package.url, temp_dir)
 
-        run_conan_create_command(args, package, tmpdirname)
+        run_conan_create_command(args, package, temp_dir)
 
 
 def install_package_from_remote(args, package: ExternalPackage):
@@ -341,14 +342,14 @@ def regenerate_conanfile(args, command):
         conan_command = [sys.executable, "-m", "conans.conan", *command_arg]
         run_command(conan_command)
     else:
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with tempfile.TemporaryDirectory() as temp_dir:
             origin_conanfile_path = args.path_or_reference
-            new_conanfile_path = os.path.join(tmpdirname, "conanfile.txt")
+            new_conanfile_path = os.path.join(temp_dir, "conanfile.txt")
             generate_new_conanfile(args, origin_conanfile_path, new_conanfile_path)
             command_index = sys.argv.index(command)
             command_arg = copy.copy(sys.argv)[command_index:]
             path_or_reference_index = command_arg.index(args.path_or_reference)
-            command_arg[path_or_reference_index] = tmpdirname
+            command_arg[path_or_reference_index] = temp_dir
             conan_command = [sys.executable, "-m", "conans.conan", *command_arg]
             run_command(conan_command)
 
@@ -397,8 +398,8 @@ def run():
     elif 'install' in sys.argv:
         args = parse_install_args()
         args = ConanArgs(args)
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            new_conanfile_path = os.path.join(tmpdirname, "conanfile.txt")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            new_conanfile_path = os.path.join(temp_dir, "conanfile.txt")
             if os.path.isdir(args.path_or_reference):
                 args.path_or_reference = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
             elif os.path.isfile(args.path_or_reference):
