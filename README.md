@@ -75,22 +75,12 @@ To use `conanex` use it the same way you use `conan`:
 conanex install <path_to_conanfile.txt> -pr=<path_to_profile>
 ```
 
-If you are using `cmake-conan`:
+If you are using `cmake` integration, just copy `cmake/conan_provider.cmake` to your project and add to CMake option `-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=./conan_provider.cmake`.
+Then you could use `find_package` to find dependency package and use it:
 ```cmake
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
-    message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
-    file(DOWNLOAD "https://raw.githubusercontent.com/conan-io/cmake-conan/0.18.1/conan.cmake"
-         "${CMAKE_BINARY_DIR}/conan.cmake"
-         TLS_VERIFY ON)
-endif()
+find_package(cpptrace REQUIRED)
 
-include(${CMAKE_BINARY_DIR}/conan.cmake)
+...
 
-set(CONAN_COMMAND conanex)
-conan_cmake_autodetect(settings)
-conan_cmake_install(PATH_OR_REFERENCE ${CMAKE_CURRENT_LIST_DIR}
-                    BUILD missing
-                    REMOTE conancenter
-                    SETTINGS ${settings})
+target_link_libraries(TestProject PUBLIC cpptrace::cpptrace)
 ```
-Only thing you need is to specify `set(CONAN_COMMAND conanex)` before any conan command
