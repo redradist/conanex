@@ -16,17 +16,10 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 from zipfile import ZipFile
 
-from .cli import build_create_args, build_install_args, parse_info_args, parse_install_args, run_git_clone_command, \
-    run_conan_create_command, run_conan_install_command, run_command, run_conan_remove_command
+from .cli import nenv, parse_info_args, parse_install_args, run_git_clone_command, \
+    run_conan_create_command, run_conan_install_command, run_conan_remove_command, run_conan_command
 from .types import ExternalPackage, ConanFileSection, ConanArgs
 
-nenv = copy.copy(os.environ)
-paths = nenv["PATH"].split(os.pathsep)
-npaths = []
-for path in paths:
-    if path not in npaths:
-        npaths.append(path)
-nenv["PATH"] = os.pathsep.join(npaths)
 
 detect_external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d\w]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*\{"
 detect_external_package_re = re.compile(detect_external_package)
@@ -303,8 +296,7 @@ def regenerate_conanfile(args, command):
     if '@' in args.path_or_reference:
         command_index = sys.argv.index(command)
         command_arg = copy.copy(sys.argv)[command_index:]
-        conan_command = [sys.executable, "-m", "conans.conan", *command_arg]
-        run_command(conan_command)
+        run_conan_command(command_arg)
     else:
         with tempfile.TemporaryDirectory() as temp_dir:
             origin_conanfile_path = args.path_or_reference
@@ -314,8 +306,7 @@ def regenerate_conanfile(args, command):
             command_arg = copy.copy(sys.argv)[command_index:]
             path_or_reference_index = command_arg.index(args.path_or_reference)
             command_arg[path_or_reference_index] = temp_dir
-            conan_command = [sys.executable, "-m", "conans.conan", *command_arg]
-            run_command(conan_command)
+            run_conan_command(command_arg)
 
 
 def install_external_packages(args, requires: List[ExternalPackage]):

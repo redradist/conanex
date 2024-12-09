@@ -6,7 +6,6 @@ from subprocess import Popen, PIPE
 from typing import List, Optional
 
 from .types import ExternalPackage
-import filelock
 
 
 nenv = copy.copy(os.environ)
@@ -412,26 +411,32 @@ def run_command(command: List[str], ignore_output=False):
         raise Exception(f"Failed command\n{' '.join(command)}:\n{stderr}")
 
 
+def run_git_command(command_args):
+    git_command = ["git", *command_args]
+    run_command(git_command)
+
+
 def run_git_clone_command(tag: Optional[str], temp_dir, url):
     if tag:
-        git_clone_command = ["git", "clone", "--recursive", '-b', tag, url, temp_dir]
+        run_git_command(["clone", "--recursive", '-b', tag, url, temp_dir])
     else:
-        git_clone_command = ["git", "clone", "--recursive", url, temp_dir]
-    run_command(git_clone_command)
+        run_git_command(["clone", "--recursive", url, temp_dir])
+
+
+def run_conan_command(command_args):
+    conan_command = [sys.executable, "-m", "conans.conan", *command_args]
+    run_command(conan_command)
 
 
 def run_conan_create_command(args, package: ExternalPackage, temp_dir):
     create_args = build_create_args(args, temp_dir, package)
-    conan_create_command = [sys.executable, "-m", "conans.conan", *create_args]
-    run_command(conan_create_command)
+    run_conan_command(create_args)
 
 
 def run_conan_install_command(args, path_or_reference):
     install_args = build_install_args(args, path_or_reference)
-    conan_install_command = [sys.executable, "-m", "conans.conan", *install_args]
-    run_command(conan_install_command)
+    run_conan_command(install_args)
 
 
 def run_conan_remove_command(path_or_reference):
-    conan_remove_command = [sys.executable, "-m", "conans.conan", "remove", "--confirm", path_or_reference]
-    run_command(conan_remove_command)
+    run_conan_command(["remove", "--confirm", path_or_reference])
