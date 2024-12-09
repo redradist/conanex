@@ -12,8 +12,8 @@ Consider the following workflow:
 ```console
 wget https://github.com/google/flatbuffers/archive/refs/tags/v22.10.26.zip
 unzip v22.10.26.zip -d flatbuffers_22_10_26
-conan create flatbuffers/22.10.26 flatbuffers_22_10_26/
-conan create ctre/3.6 ../../../../compile-time-regular-expressions
+conan create --name=flatbuffers --version=22.10.26 flatbuffers_22_10_26/
+conan create --name=ctre --version=3.6 ../../../../compile-time-regular-expressions/
 ```
 
 Such workflow has a following drawbacks:
