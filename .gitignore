@@ -3,6 +3,7 @@
 dist/
 build/
 __pycache__/
+.DS_Store
 conan.lock
 conanbuildinfo.txt
 conaninfo.txt
