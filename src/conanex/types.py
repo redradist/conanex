@@ -23,15 +23,12 @@ class ConanFileSection(Enum):
     Options = 3
 
 
-class ExternalPackage:
-    def __init__(self, name, version, user, channel, protocol, url, **kwargs):
+class Package:
+    def __init__(self, name, version, user, channel):
         self.name = name
         self.version = version
         self.user = user
         self.channel = channel
-        self.protocol = protocol
-        self.url = url
-        self.attrs = dict(kwargs)
         self.options = []
 
     @property
@@ -44,6 +41,15 @@ class ExternalPackage:
             return "{}@{}/{}".format(self.package_name, self.user, self.channel)
         else:
             return "{}@".format(self.package_name)
+
+
+class ExternalPackage(Package):
+    def __init__(self, name, version, user, channel, protocol, url, **kwargs):
+        super().__init__(name, version, user, channel)
+
+        self.protocol = protocol
+        self.url = url
+        self.attrs = dict(kwargs)
 
     @property
     def package_hash_algo(self):

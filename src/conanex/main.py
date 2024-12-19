@@ -7,6 +7,7 @@ import subprocess
 import tarfile
 import tempfile
 import sys
+from contextlib import ExitStack
 
 from io import BytesIO
 from pathlib import Path
@@ -19,8 +20,11 @@ from zipfile import ZipFile
 from conan import conan_version
 
 from .cli import nenv, parse_info_args, parse_install_args, run_git_clone_command, \
-    run_conan_create_command, run_conan_install_command, run_conan_remove_command, run_conan_command
-from .types import ExternalPackage, ConanFileSection, ConanArgs
+    run_conan_create_command, run_conan_install_command, run_conan_remove_command, run_conan_command, get_filelock_path
+from .types import ExternalPackage, ConanFileSection, ConanArgs, Package
+
+detect_conan_center_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d\w]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?"
+detect_conan_center_package_re = re.compile(detect_conan_center_package)
 
 detect_external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d\w]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*\{"
 detect_external_package_re = re.compile(detect_external_package)
@@ -172,7 +176,8 @@ def is_command_to_modify():
 
 def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str):
     if os.path.exists(origin_conanfile_path):
-        requires: List[ExternalPackage] = []
+        external_requires: List[ExternalPackage] = []
+        conan_center_requires: List[Package] = []
         options: Dict[str, str] = {}
 
         with open(origin_conanfile_path) as f:
@@ -200,6 +205,7 @@ def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str)
                     new_file_lines.append(str(line))
                     continue
 
+                conan_center_package_match = detect_conan_center_package_re.match(line)
                 detect_external_package_match = detect_external_package_re.match(line)
                 option_match = option_re.match(line)
                 if detect_external_package_match or len(external_package_lines) > 0:
@@ -264,7 +270,7 @@ def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str)
                                                    protocol=protocol,
                                                    url=url,
                                                    **properties)
-                    requires.append(package_info)
+                    external_requires.append(package_info)
                     full_package_name = package_info.full_package_name
                     if full_package_name[-1] == '@':
                         full_package_name = full_package_name[:-1]
@@ -275,6 +281,13 @@ def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str)
                     value = option_match.group('value')
                     options[name] = "{}={}".format(option, value)
                     new_file_lines.append(str(line))
+                elif conan_center_package_match:
+                    name = conan_center_package_match.group('package')
+                    version = conan_center_package_match.group('version')
+                    user = conan_center_package_match.group('user')
+                    channel = conan_center_package_match.group('channel')
+                    conan_center_requires.append(Package(name=name, version=version, user=user, channel=channel))
+                    new_file_lines.append(str(line))
                 else:
                     new_file_lines.append(str(line))
 
@@ -283,14 +296,14 @@ def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str)
                                 "Please, check a syntax for conanex !!"
                                 .format(''.join(external_package_lines)))
 
-        for package in requires:
+        for package in external_requires:
             if package.name in options:
                 package.options.append(options[package.name])
 
         with open(new_conanfile, mode='w') as file:
             file.writelines(new_file_lines)
 
-        return requires
+        return external_requires, conan_center_requires
 
 
 def regenerate_conanfile(args, command):
@@ -366,9 +379,11 @@ def run():
                 args.path_or_reference = args.path_or_reference
             else:
                 raise Exception("path_or_reference should be either directory or file")
-            requires = generate_new_conanfile(args, args.path_or_reference, new_conanfile_path)
-            install_external_packages(args, requires)
-            run_conan_install_command(args, new_conanfile_path)
+            external_requires, conan_center_requires = generate_new_conanfile(args, args.path_or_reference, new_conanfile_path)
+            with ExitStack() as stack:
+                locks = [stack.enter_context(get_filelock_path(require)) for require in conan_center_requires]
+                install_external_packages(args, external_requires)
+                run_conan_install_command(args, new_conanfile_path)
 
 
 __version__ = '2.2.1'
