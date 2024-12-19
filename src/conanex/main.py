@@ -16,10 +16,11 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 from zipfile import ZipFile
 
+from conan import conan_version
+
 from .cli import nenv, parse_info_args, parse_install_args, run_git_clone_command, \
     run_conan_create_command, run_conan_install_command, run_conan_remove_command, run_conan_command
 from .types import ExternalPackage, ConanFileSection, ConanArgs
-
 
 detect_external_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d\w]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?\s*\{"
 detect_external_package_re = re.compile(detect_external_package)
@@ -342,6 +343,10 @@ def install_external_packages(args, requires: List[ExternalPackage]):
 
 def run():
     if not is_command_to_modify():
+        if '--version' in sys.argv:
+            print(f"ConanEx version {__version__}, Conan version {conan_version}")
+            return
+
         conan_command = [sys.executable, "-m", "conans.conan", *sys.argv[1:]]
         with Popen(conan_command, env=nenv) as proc:
             pass
@@ -365,6 +370,8 @@ def run():
             install_external_packages(args, requires)
             run_conan_install_command(args, new_conanfile_path)
 
+
+__version__ = '2.2.1'
 
 if __name__ == '__main__':
     run()

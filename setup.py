@@ -28,7 +28,7 @@ def get_requires(filename):
 def load_version():
     """ Loads a file content """
     filename = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                            "src", "conanex", "__init__.py"))
+                                            "src", "conanex", "main.py"))
     with open(filename, "rt") as version_file:
         conan_init = version_file.read()
         version = re.search(r"__version__ = '([0-9a-z.-]+)'", conan_init).group(1)

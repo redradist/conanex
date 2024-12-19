@@ -428,7 +428,28 @@ def run_conan_command(command_args):
     run_command(conan_command)
 
 
+def _run_graph_info(package: ExternalPackage, temp_dir):
+    graph_info_command_args = ["graph", "info", "-c", "tools.build:download_source=True"]
+    if package.name:
+        graph_info_command_args.append('--name')
+        graph_info_command_args.append(package.name)
+    if package.version:
+        graph_info_command_args.append('--version')
+        graph_info_command_args.append(package.version)
+    if package.user:
+        graph_info_command_args.append('--user')
+        graph_info_command_args.append(package.user)
+    if package.channel:
+        graph_info_command_args.append('--channel')
+        graph_info_command_args.append(package.channel)
+
+    graph_info_command_args.append(temp_dir)
+
+    run_conan_command(graph_info_command_args)
+
+
 def run_conan_create_command(args, package: ExternalPackage, temp_dir):
+    _run_graph_info(package, temp_dir)
     create_args = build_create_args(args, temp_dir, package)
     run_conan_command(create_args)
 

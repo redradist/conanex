@@ -5,6 +5,7 @@ build/
 __pycache__/
 .DS_Store
 conan.lock
+conanex.lock
 conanbuildinfo.txt
 conaninfo.txt
 graph_info.json

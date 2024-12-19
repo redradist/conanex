@@ -3,7 +3,7 @@ from pathlib import Path
 
 from conan import ConanFile
 from conanex.main import install_package_from_git, install_package_from_zip, install_package_from_path, \
-    install_package_from_conanfile, install_package_from_remote, ExternalPackage
+    install_package_from_conanfile, install_package_from_remote, ExternalPackage, __version__ as main_version
 
 
 class ConanExFile(ConanFile):
@@ -91,4 +91,4 @@ class ConanExFile(ConanFile):
             self.requires(*args, **kwargs)
 
 
-__version__ = '2.2.0'
+__version__ = main_version
