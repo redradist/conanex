@@ -5,8 +5,9 @@ import sys
 from subprocess import Popen, PIPE
 from typing import List, Optional
 
-from .types import ExternalPackage
+from filelock import FileLock
 
+from .types import ExternalPackage, Package
 
 nenv = copy.copy(os.environ)
 paths = nenv["PATH"].split(os.pathsep)
@@ -410,6 +411,8 @@ def run_command(command: List[str], ignore_output=False):
     if exit_code != 0:
         raise Exception(f"Failed command\n{' '.join(command)}:\n{stderr}")
 
+    return exit_code, stdout, stderr
+
 
 def run_git_command(command_args):
     git_command = ["git", *command_args]
@@ -423,9 +426,9 @@ def run_git_clone_command(tag: Optional[str], temp_dir, url):
         run_git_command(["clone", "--recursive", url, temp_dir])
 
 
-def run_conan_command(command_args):
+def run_conan_command(command_args, ignore_output=False):
     conan_command = [sys.executable, "-m", "conans.conan", *command_args]
-    run_command(conan_command)
+    run_command(conan_command, ignore_output=ignore_output)
 
 
 def _run_graph_info(package: ExternalPackage, temp_dir):
@@ -445,13 +448,24 @@ def _run_graph_info(package: ExternalPackage, temp_dir):
 
     graph_info_command_args.append(temp_dir)
 
-    run_conan_command(graph_info_command_args)
+    run_conan_command(graph_info_command_args, ignore_output=True)
+
+
+def get_filelock_path(package: Package):
+    _, conan_home, _ = run_command([sys.executable, "-m", "conans.conan", "config", "home"], ignore_output=True)
+    if package.user is not None:
+        lock = FileLock(os.path.join(conan_home.strip(), f"{package.name}_{package.version}_{package.user}_{package.channel}.lock"))
+    else:
+        lock = FileLock(os.path.join(conan_home.strip(), f"{package.name}_{package.version}.lock"))
+    return lock
 
 
 def run_conan_create_command(args, package: ExternalPackage, temp_dir):
-    _run_graph_info(package, temp_dir)
-    create_args = build_create_args(args, temp_dir, package)
-    run_conan_command(create_args)
+    lock = get_filelock_path(package)
+    with lock:
+        _run_graph_info(package, temp_dir)
+        create_args = build_create_args(args, temp_dir, package)
+        run_conan_command(create_args)
 
 
 def run_conan_install_command(args, path_or_reference):
