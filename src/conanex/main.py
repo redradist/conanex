@@ -7,7 +7,6 @@ import subprocess
 import tarfile
 import tempfile
 import sys
-from contextlib import ExitStack
 
 from io import BytesIO
 from pathlib import Path
@@ -20,7 +19,8 @@ from zipfile import ZipFile
 from conan import conan_version
 
 from .cli import nenv, parse_info_args, parse_install_args, run_git_clone_command, \
-    run_conan_create_command, run_conan_install_command, run_conan_remove_command, run_conan_command, get_filelock_path
+    run_conan_create_command, run_conan_install_command, run_conan_remove_command, run_conan_command, get_filelock_path, \
+    get_global_filelock_path
 from .types import ExternalPackage, ConanFileSection, ConanArgs, Package
 
 detect_conan_center_package = r"(?P<package>(-|\w)+)(\/(?P<version>[.\d\w]+))?(@((?P<user>\w+)\/(?P<channel>\w+))?)?"
@@ -380,13 +380,21 @@ def run():
             else:
                 raise Exception("path_or_reference should be either directory or file")
             external_requires, conan_center_requires = generate_new_conanfile(args, args.path_or_reference, new_conanfile_path)
-            with ExitStack() as stack:
-                locks = [stack.enter_context(get_filelock_path(require)) for require in conan_center_requires]
-                install_external_packages(args, external_requires)
-                run_conan_install_command(args, new_conanfile_path)
+            install_external_packages(args, external_requires)
+            run_conan_install_command(args, new_conanfile_path)
 
 
 __version__ = '2.2.1'
 
 if __name__ == '__main__':
-    run()
+    if "--global-lock" in sys.argv:
+        lock_option_index = sys.argv.index("--global-lock")
+        if lock_option_index < 2:
+            raise Exception("Global lock should be after the command")
+
+        sys.argv.remove("--global-lock")
+
+        with get_global_filelock_path():
+            run()
+    else:
+        run()

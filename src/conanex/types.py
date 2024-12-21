@@ -68,3 +68,12 @@ class ExternalPackage(Package):
         if self.package_hash_algo:
             hash = self.attrs[self.package_hash_algo]
         return hash.lower().replace("'", "").replace('"', '')
+
+    def __str__(self):
+        return f"{self.full_package_name} {self.protocol} {self.url} {self.package_hash_algo}"
+
+    def __repr__(self):
+        return f"ExternalPackage(full_package_name={self.full_package_name}, \
+                                 protocol={self.protocol}, \
+                                 url={self.url}, \
+                                 package_hash_algo={self.package_hash_algo})"

@@ -414,6 +414,20 @@ def run_command(command: List[str], ignore_output=False):
     return exit_code, stdout, stderr
 
 
+def get_global_filelock_path() -> FileLock:
+    _, conan_home, _ = run_command([sys.executable, "-m", "conans.conan", "config", "home"], ignore_output=True)
+    return FileLock(os.path.join(conan_home.strip(), "conan.lock"))
+
+
+def get_filelock_path(package: Package) -> FileLock:
+    _, conan_home, _ = run_command([sys.executable, "-m", "conans.conan", "config", "home"], ignore_output=True)
+    if package.user is not None:
+        lock = FileLock(os.path.join(conan_home.strip(), f"{package.name}_{package.version}_{package.user}_{package.channel}.lock"))
+    else:
+        lock = FileLock(os.path.join(conan_home.strip(), f"{package.name}_{package.version}.lock"))
+    return lock
+
+
 def run_git_command(command_args):
     git_command = ["git", *command_args]
     run_command(git_command)
@@ -451,21 +465,9 @@ def _run_graph_info(package: ExternalPackage, temp_dir):
     run_conan_command(graph_info_command_args, ignore_output=True)
 
 
-def get_filelock_path(package: Package):
-    _, conan_home, _ = run_command([sys.executable, "-m", "conans.conan", "config", "home"], ignore_output=True)
-    if package.user is not None:
-        lock = FileLock(os.path.join(conan_home.strip(), f"{package.name}_{package.version}_{package.user}_{package.channel}.lock"))
-    else:
-        lock = FileLock(os.path.join(conan_home.strip(), f"{package.name}_{package.version}.lock"))
-    return lock
-
-
 def run_conan_create_command(args, package: ExternalPackage, temp_dir):
-    lock = get_filelock_path(package)
-    with lock:
-        _run_graph_info(package, temp_dir)
-        create_args = build_create_args(args, temp_dir, package)
-        run_conan_command(create_args)
+    create_args = build_create_args(args, temp_dir, package)
+    run_conan_command(create_args, ignore_output=True)
 
 
 def run_conan_install_command(args, path_or_reference):
