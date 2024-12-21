@@ -384,9 +384,7 @@ def run():
             run_conan_install_command(args, new_conanfile_path)
 
 
-__version__ = '2.2.2'
-
-if __name__ == '__main__':
+def main():
     if "--global-lock" in sys.argv:
         lock_option_index = sys.argv.index("--global-lock")
         if lock_option_index < 2:
@@ -398,3 +396,9 @@ if __name__ == '__main__':
             run()
     else:
         run()
+
+
+__version__ = '2.2.4'
+
+if __name__ == '__main__':
+    main()
