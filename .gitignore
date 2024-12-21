@@ -12,3 +12,4 @@ graph_info.json
 conan*.sh
 conan*.bat
 conan*.ps1
+CMakeUserPresets.json

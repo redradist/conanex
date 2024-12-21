@@ -433,7 +433,7 @@ endfunction()
 
 function(conan_profile_detect_default)
     message(STATUS "CMake-Conan: Checking if a default profile exists")
-    execute_process(COMMAND ${CONAN_COMMAND} profile path default
+    execute_process(COMMAND ${CONAN_COMMAND} profile path default --global-lock
                     RESULT_VARIABLE return_code
                     OUTPUT_VARIABLE conan_stdout
                     ERROR_VARIABLE conan_stderr
@@ -442,7 +442,7 @@ function(conan_profile_detect_default)
                     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     if(NOT ${return_code} EQUAL "0")
         message(STATUS "CMake-Conan: The default profile doesn't exist, detecting it.")
-        execute_process(COMMAND ${CONAN_COMMAND} profile detect
+        execute_process(COMMAND ${CONAN_COMMAND} profile detect --global-lock
             RESULT_VARIABLE return_code
             OUTPUT_VARIABLE conan_stdout
             ERROR_VARIABLE conan_stderr
@@ -468,7 +468,7 @@ function(conan_install)
         set(ENV{PATH} "$ENV{PATH}:${PATH_TO_CMAKE_BIN}")
     endif()
 
-    execute_process(COMMAND ${CONAN_COMMAND} install ${CMAKE_SOURCE_DIR} ${conan_args} ${ARGN} --format=json
+    execute_process(COMMAND ${CONAN_COMMAND} install ${CMAKE_SOURCE_DIR} ${conan_args} ${ARGN} --format=json --global-lock
                     RESULT_VARIABLE return_code
                     OUTPUT_VARIABLE conan_stdout
                     ERROR_VARIABLE conan_stderr
