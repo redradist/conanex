@@ -178,7 +178,7 @@ def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str)
     if os.path.exists(origin_conanfile_path):
         external_requires: List[ExternalPackage] = []
         conan_center_requires: List[Package] = []
-        options: Dict[str, str] = {}
+        options: Dict[str, List[str]] = {}
 
         with open(origin_conanfile_path) as f:
             new_file_lines = []
@@ -279,7 +279,17 @@ def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str)
                     name = option_match.group('name')
                     option = option_match.group('option')
                     value = option_match.group('value')
-                    options[name] = "{}={}".format(option, value)
+
+                    option_str = "{}={}".format(option, value)
+                    if name == "*":
+                        if "*" not in options:
+                            options["*"] = []
+                        options["*"].append(option_str)
+                    else:
+                        if name not in options:
+                            options[name] = []
+                        options[name].append(option_str)
+
                     new_file_lines.append(str(line))
                 elif conan_center_package_match:
                     name = conan_center_package_match.group('package')
@@ -297,8 +307,16 @@ def generate_new_conanfile(args, origin_conanfile_path: str, new_conanfile: str)
                                 .format(''.join(external_package_lines)))
 
         for package in external_requires:
-            if package.name in options:
-                package.options.append(options[package.name])
+            if "*" in options:
+                package.options.extend(options["*"])
+
+            for option_name, option_values in options.items():
+                name, version = option_name.split("/")
+                if (name == package.name and version == "*") or \
+                   (name == package.name and version == package.version):
+                    package.options.extend(option_values)
+
+            package.options = list(set(package.options))
 
         with open(new_conanfile, mode='w') as file:
             file.writelines(new_file_lines)
@@ -398,7 +416,7 @@ def main():
         run()
 
 
-__version__ = '2.2.4'
+__version__ = '2.2.5'
 
 if __name__ == '__main__':
     main()

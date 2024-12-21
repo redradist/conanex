@@ -17,8 +17,8 @@ rtlsdr/v0.9.0 {
 ctre/3.9.0 { remote = "conancenter" }
 
 [options]
-flatbuffers/*:shared=True
-poco/*:shared=True
+hackrf/*:shared=True
+rtlsdr/*:shared=True
 
 [generators]
 CMakeDeps
