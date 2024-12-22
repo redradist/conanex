@@ -84,3 +84,21 @@ find_package(cpptrace REQUIRED)
 
 target_link_libraries(TestProject PUBLIC cpptrace::cpptrace)
 ```
+
+## Future features
+
+1. Implement `ConanExFile` to support in `conanfile.py` install of external dependencies
+2. Improve conanex install command to fill like:
+Instead of:
+```console
+conanex install --requires=poco/1.13.3 --requires=flatbuffers/22.10.26 --requires=ctre/3.6 --build=missing --output-folder=/dev/null 
+conanex install --requires=poco/1.13.3 --tool-requires=cmake/3.23.5 --tool-requires=ninja/1.11.0 --build=missing --output-folder=/dev/null 
+```
+
+Use like this:
+```console
+conanex install poco/1.9.4 flatbuffers/22.10.26 ctre/3.6
+conanex install poco/1.9.4 --tools cmake/3.23.5 ninja/1.11.0
+```
+
+This will feel like alternative to `apt-get` on Ubuntu, `brew` on MacOS and `choco` on Windows, but cross-platform.
