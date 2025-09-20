@@ -273,7 +273,7 @@ def build_install_args(args, path_or_reference: ExternalPackage | str):
 
     if hasattr(args, 'requires') and getattr(args, 'requires'):
         for require in getattr(args, 'requires'):
-            new_args.append('-r')
+            new_args.append('--requires')
             new_args.append(require)
     if hasattr(args, 'tool-requires') and getattr(args, 'tool-requires'):
         for require in getattr(args, 'tool-requires'):
