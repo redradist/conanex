@@ -77,8 +77,6 @@ def parse_install_args():
     install_parser.add_argument('-if', '--install-folder', type=str, help='INSTALL_FOLDER')
     install_parser.add_argument('-of', '--output-folder', type=str, help='OUTPUT_FOLDER')
     install_parser.add_argument('-v', '--verify', type=str, nargs='?', const='default', help='VERIFY')
-    install_parser.add_argument('--requires', type=str, action='append', nargs='+', help='REQUIRES')
-    install_parser.add_argument('--tool-requires', type=str, action='append', nargs='+', help='TOOL_REQUIRES')
     install_parser.add_argument('--deployer-folder', type=str, help='DEPLOYER_FOLDER')
     install_parser.add_argument('--name', type=str, help='NAME')
     install_parser.add_argument('--version', type=str, help='VERSION')
@@ -115,8 +113,9 @@ def parse_install_args():
     install_parser.add_argument('-c:b', '--conf:build', type=str, action='append', help='CONF_BUILD')
     install_parser.add_argument('-c:h', '--conf:host', type=str, action='append', help='CONF_HOST')
     install_parser.add_argument('-c:a', '--conf:all', type=str, action='append', help='CONF_ALL')
-    install_parser.add_argument('path_or_reference', type=str)
-    install_parser.add_argument('reference', type=str, nargs='?')
+    install_parser.add_argument('--path', dest="path_or_reference",type=str)
+    install_parser.add_argument('--tools', dest='tool-requires', type=str, nargs='+', help='TOOL_REQUIRES')
+    install_parser.add_argument('requires', type=str, nargs='*', help='REQUIRES')
     return parser.parse_args()
 
 
@@ -235,7 +234,7 @@ def build_create_args(args, tmpdirname, package: ExternalPackage):
     return new_args
 
 
-def build_install_args(args, path_or_reference: ExternalPackage | str):
+def build_install_args(args, path_or_reference: Optional[ExternalPackage | str]):
     new_args = ['install']
 
     if args.generator:
@@ -393,10 +392,11 @@ def build_install_args(args, path_or_reference: ExternalPackage | str):
         new_args.append('-c:a')
         new_args.append(getattr(args, 'conf:all'))
 
-    if isinstance(path_or_reference, ExternalPackage):
-        new_args.append(f'--requires={path_or_reference.full_package_name}')
-    else:
-        new_args.append(path_or_reference)
+    if path_or_reference:
+        if isinstance(path_or_reference, ExternalPackage):
+            new_args.append(f'--requires={path_or_reference.full_package_name}')
+        else:
+            new_args.append(path_or_reference)
     return new_args
 
 

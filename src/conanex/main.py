@@ -389,17 +389,20 @@ def run():
     elif 'install' in sys.argv:
         args = parse_install_args()
         args = ConanArgs(args)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            new_conanfile_path = os.path.join(temp_dir, "conanfile.txt")
-            if os.path.isdir(args.path_or_reference):
-                args.path_or_reference = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
-            elif os.path.isfile(args.path_or_reference):
-                args.path_or_reference = args.path_or_reference
-            else:
-                raise Exception("path_or_reference should be either directory or file")
-            external_requires, conan_center_requires = generate_new_conanfile(args, args.path_or_reference, new_conanfile_path)
-            install_external_packages(args, external_requires)
-            run_conan_install_command(args, new_conanfile_path)
+        new_conanfile_path = None
+        if args.path_or_reference:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                new_conanfile_path = os.path.join(temp_dir, "conanfile.txt")
+                if os.path.isdir(args.path_or_reference):
+                    args.path_or_reference = os.path.join(os.path.abspath(args.path_or_reference), "conanfile.txt")
+                elif os.path.isfile(args.path_or_reference):
+                    args.path_or_reference = args.path_or_reference
+                else:
+                    raise Exception("path_or_reference should be either directory or file")
+                external_requires, conan_center_requires = generate_new_conanfile(args, args.path_or_reference, new_conanfile_path)
+                install_external_packages(args, external_requires)
+
+        run_conan_install_command(args, new_conanfile_path)
 
 
 def main():
