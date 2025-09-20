@@ -419,7 +419,7 @@ def main():
         run()
 
 
-__version__ = '2.2.5'
+__version__ = '2.3.0'
 
 if __name__ == '__main__':
     main()
