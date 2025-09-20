@@ -64,10 +64,10 @@ class ExternalPackage(Package):
 
     @property
     def package_hash_code(self):
-        hash = None
+        hash_code = None
         if self.package_hash_algo:
-            hash = self.attrs[self.package_hash_algo]
-        return hash.lower().replace("'", "").replace('"', '')
+            hash_code = self.attrs[self.package_hash_algo]
+        return hash_code.lower().replace("'", "").replace('"', '')
 
     def __str__(self):
         return f"{self.full_package_name} {self.protocol} {self.url} {self.package_hash_algo}"
